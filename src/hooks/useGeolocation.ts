@@ -112,11 +112,12 @@ export const useGeolocation = () => {
     });
   }, []);
 
-  // Auto-get location on mount if supported
+  // Auto-get location on mount if supported (disabled - now handled in onboarding)
   useEffect(() => {
-    if (state.isSupported && !state.location && !state.isLoading) {
-      getCurrentLocation().catch(console.error);
-    }
+    // Skip auto-request - location is now requested during onboarding
+    // if (state.isSupported && !state.location && !state.isLoading) {
+    //   getCurrentLocation().catch(console.error);
+    // }
   }, [state.isSupported, state.location, state.isLoading, getCurrentLocation]);
 
   const watchLocation = useCallback(() => {

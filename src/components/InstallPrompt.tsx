@@ -14,9 +14,18 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onClose }) => {
   useEffect(() => {
     const handleInstallAvailable = (available: boolean) => {
       setCanInstall(available);
+      
+      // Don't auto-show anymore since we have dedicated onboarding
+      // Only show if explicitly triggered or after user has been using the app
       if (available && !pwaManager.isAppInstalled()) {
-        // Show prompt after a delay to not be intrusive
-        setTimeout(() => setShowPrompt(true), 3000);
+        // Show prompt after much longer delay and only if no recent onboarding
+        const lastDismissed = localStorage.getItem('pwa-install-dismissed');
+        const shouldShowLater = !lastDismissed || 
+          (Date.now() - JSON.parse(lastDismissed).timestamp > 24 * 60 * 60 * 1000); // 24 hours
+        
+        if (shouldShowLater) {
+          setTimeout(() => setShowPrompt(true), 30000); // 30 seconds delay
+        }
       } else {
         setShowPrompt(false);
       }

@@ -162,18 +162,20 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
 
       {/* Location Error */}
       {locationError && !locationLoading && (
-        <div className={`absolute ${isMobile ? 'top-4 left-4' : 'top-6 left-6'} bg-orange-500/90 backdrop-blur-xl text-white px-3 py-2 rounded-xl border border-orange-400/50 shadow-lg max-w-xs`}>
-          <div className="flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+        <div className={`absolute ${isMobile ? 'top-4 left-4 right-4' : 'top-6 left-6'} ${isMobile ? 'bg-orange-500/80' : 'bg-orange-500/90'} backdrop-blur-xl text-white ${isMobile ? 'px-2 py-1' : 'px-3 py-2'} rounded-xl border border-orange-400/50 shadow-lg ${isMobile ? 'max-w-none' : 'max-w-xs'}`}>
+          <div className="flex items-center space-x-2">
+            <AlertCircle className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} flex-shrink-0`} />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium">Using default location</p>
-              <p className="text-xs opacity-90 leading-tight">{locationError}</p>
+              <p className={`${isMobile ? 'text-xs' : 'text-xs'} font-medium`}>Using default location</p>
+              {!isMobile && (
+                <p className="text-xs opacity-90 leading-tight">{locationError}</p>
+              )}
             </div>
             <button
               onClick={handleRetryLocation}
-              className="flex-shrink-0 p-1 hover:bg-white/20 rounded transition-colors"
+              className={`flex-shrink-0 ${isMobile ? 'p-0.5' : 'p-1'} hover:bg-white/20 rounded transition-colors`}
             >
-              <RefreshCw className="h-3 w-3" />
+              <RefreshCw className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} />
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { Camera, Zap, Shield, Sparkles } from 'lucide-react';
+import { Camera, MapPin, Zap, Shield, Sparkles } from 'lucide-react';
 
 interface LoadingScreenProps {
   onPermissionGranted: () => void;
@@ -26,6 +26,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [isRequesting, setIsRequesting] = useState(false);
   const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
   const [showButton, setShowButton] = useState(false);
+  const [requestStep, setRequestStep] = useState('');
 
   // Skip animation for initial permission checks in PWA to make it faster
   const shouldSkipAnimation = isPWA && isInitialCheck;
@@ -145,7 +146,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     }
 
     try {
-      // Add a longer delay for PWA to ensure proper initialization
+      // Step 1: Request Camera Permission
+      setRequestStep('Requesting camera access...');
       await new Promise(resolve => setTimeout(resolve, isPWA ? 500 : 300));
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -156,7 +158,36 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       // Stop the stream immediately - we just needed permission
       stream.getTracks().forEach(track => track.stop());
       
-      // Add another delay to ensure cleanup is complete, especially for PWA
+      // Step 2: Request Location Permission
+      setRequestStep('Requesting location access...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      await new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          console.warn('Geolocation not supported - proceeding without location');
+          resolve(null);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('Location permission granted:', position.coords);
+            resolve(position);
+          },
+          (error) => {
+            console.warn('Location permission denied - proceeding anyway:', error);
+            // Don't reject - we'll proceed without location
+            resolve(null);
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 5000,
+            maximumAge: 300000
+          }
+        );
+      });
+
+      setRequestStep('Complete!');
       await new Promise(resolve => setTimeout(resolve, isPWA ? 400 : 200));
       
       // Success animation
@@ -186,6 +217,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     } catch (error) {
       console.error('Permission denied:', error);
       setIsRequesting(false);
+      setRequestStep('');
       
       // Error shake animation
       if (!shouldSkipAnimation && containerRef.current) {
@@ -302,12 +334,15 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             {isRequesting ? (
               <>
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                <span>Requesting Access...</span>
+                <span>{requestStep || 'Requesting Access...'}</span>
               </>
             ) : (
               <>
-                <Camera className="h-5 w-5" />
-                <span>Enable Camera Access</span>
+                <div className="flex items-center space-x-2">
+                  <Camera className="h-5 w-5" />
+                  <MapPin className="h-5 w-5" />
+                </div>
+                <span>Enable Camera & Location</span>
               </>
             )}
           </div>

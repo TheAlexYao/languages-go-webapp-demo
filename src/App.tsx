@@ -20,7 +20,12 @@ import { getMockCommunityData } from './services/mockData';
 import { signInAnonymously, supabase, savePinsLocally, loadPinsLocally, resolvePhotoUrl } from './services/supabase';
 import { VocabularyCard, PhotoPin, CollectionStats } from './types/vocabulary';
 import { Player } from './types/player';
+import { PWAOnboardingScreen } from './components/PWAOnboardingScreen';
+import { pwaManager } from './utils/pwa';
 
+type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error';
+type PermissionState = 'loading' | 'granted' | 'denied';
+type PWAState = 'checking' | 'show-onboarding' | 'completed';
 type Tab = 'camera' | 'map' | 'collection' | 'community';
 
 function App() {
@@ -30,10 +35,11 @@ function App() {
   const { location, getCurrentLocation, isLoading: locationLoading, error: locationError } = useGeolocation();
   
   const [currentTab, setCurrentTab] = useState<Tab>('camera');
-  const [permissionState, setPermissionState] = useState<'loading' | 'granted' | 'denied'>('loading');
-  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated' | 'error'>('loading');
+  const [permissionState, setPermissionState] = useState<PermissionState>('loading');
+  const [authState, setAuthState] = useState<AuthState>('loading');
+  const [pwaState, setPwaState] = useState<PWAState>('checking');
   
-  console.log('🔍 Current auth state in render:', authState);
+  console.log(' Current auth state in render:', authState);
   
   const { collectedCards, stats: hookStats, isLoading: collectionLoading, collectCard } = useCardCollection(authState === 'authenticated');
   const [pins, setPins] = useState<PhotoPin[]>([]);
@@ -50,6 +56,25 @@ function App() {
 
   // Use hook's stats directly - the hook now handles both authenticated and demo modes
   const currentStats = hookStats;
+
+  // Check PWA state on mount
+  useEffect(() => {
+    const checkPWAState = () => {
+      if (pwaManager.isAppInstalled()) {
+        // Already installed as PWA
+        setPwaState('completed');
+      } else if (pwaManager.shouldShowOnboarding()) {
+        // Should show onboarding based on PWA manager logic
+        setPwaState('show-onboarding');
+      } else {
+        // Skip onboarding
+        setPwaState('completed');
+      }
+    };
+
+    // Small delay to let PWA manager initialize
+    setTimeout(checkPWAState, 500);
+  }, [isMobile]);
 
   // Initialize authentication on mount
   useEffect(() => {
@@ -129,10 +154,29 @@ function App() {
 
   const handlePermissionGranted = () => {
     setPermissionState('granted');
+    
+    // Trigger location request after permissions are granted
+    if (location === null) {
+      getCurrentLocation().catch((error) => {
+        console.warn('Location request failed after permission grant:', error);
+        // Continue anyway - app works with default location
+      });
+    }
   };
 
   const handlePermissionDenied = () => {
     setPermissionState('denied');
+  };
+
+  const handlePWAInstall = () => {
+    console.log('🎉 PWA installed successfully');
+    setPwaState('completed');
+  };
+
+  const handlePWASkip = () => {
+    console.log('⏭️ PWA onboarding skipped');
+    pwaManager.skipOnboarding(); // Mark as dismissed in PWA manager
+    setPwaState('completed');
   };
 
   const handleCardsGenerated = (cards: VocabularyCard[], pin: PhotoPin) => {
@@ -250,19 +294,20 @@ function App() {
   };
 
   // Debug: Log current state
-  console.log('🐛 App render state:', { authState, permissionState, collectionLoading });
+  console.log('🐛 App render state:', { authState, permissionState, collectionLoading, pwaState });
 
   // Debug render state
   console.log('🎨 App render state:', { 
     authState, 
     permissionState, 
     collectionLoading,
+    pwaState,
     collectedCardsCount: collectedCards.length
   });
 
   // Show loading screen until authentication and permissions are resolved
-  if (authState === 'loading' || permissionState === 'loading' || collectionLoading) {
-    console.log('⏳ Loading state:', { authState, permissionState, collectionLoading });
+  if (authState === 'loading' || permissionState === 'loading' || collectionLoading || pwaState === 'checking') {
+    console.log('⏳ Loading state:', { authState, permissionState, collectionLoading, pwaState });
     return (
       <LoadingScreen
         onPermissionGranted={handlePermissionGranted}
@@ -279,6 +324,18 @@ function App() {
       <AuthScreen
         onAuthSuccess={handleAuthSuccess}
         onAuthError={handleAuthError}
+        isMobile={isMobile}
+      />
+    );
+  }
+
+  // Show PWA onboarding after permissions are granted but before main app
+  if (pwaState === 'show-onboarding') {
+    console.log('📱 Showing PWA onboarding screen');
+    return (
+      <PWAOnboardingScreen
+        onInstall={handlePWAInstall}
+        onSkip={handlePWASkip}
         isMobile={isMobile}
       />
     );

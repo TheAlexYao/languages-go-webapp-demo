@@ -226,6 +226,33 @@ export class PWAManager {
     }
     return null;
   }
+
+  public shouldShowOnboarding(): boolean {
+    // Show onboarding if:
+    // 1. Not already installed
+    // 2. Can potentially install (has beforeinstallprompt or is supported browser)
+    // 3. Hasn't been dismissed recently
+    return !this.isInstalled && !this.isDismissed() && (this.deferredPrompt !== null || this.canPotentiallyInstall());
+  }
+
+  private canPotentiallyInstall(): boolean {
+    // Check if browser supports PWA installation
+    // This includes Safari on iOS (manual install) and other browsers
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
+    const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent);
+    const isChrome = /chrome/.test(userAgent);
+    const isEdge = /edge/.test(userAgent);
+    const isFirefox = /firefox/.test(userAgent);
+    
+    // Most modern browsers support PWA in some form
+    return isIOS || isSafari || isChrome || isEdge || isFirefox;
+  }
+
+  public skipOnboarding() {
+    // Mark as if dismissed to prevent showing again soon
+    this.setDismissed();
+  }
 }
 
 // Create singleton instance

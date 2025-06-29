@@ -48,44 +48,8 @@ function App() {
   // Mock community data
   const communityData = getMockCommunityData();
 
-  // Calculate comprehensive stats based on actual app state
-  const calculateAppStats = (): CollectionStats => {
-    // Get all cards from all pins
-    const allCards = pins.flatMap(pin => pin.cards);
-    const collectedCardsCount = collectedCards.length;
-    
-    // Calculate unique words from collected cards
-    const uniqueWords = new Set(collectedCards.map(c => c.word.toLowerCase())).size;
-    
-    // Calculate languages from collected cards
-    const languages = Array.from(new Set(collectedCards.map(c => c.language)));
-    
-    // Calculate total XP based on collected cards
-    const totalXp = collectedCards.reduce((xp, card) => {
-      const baseXp = card.difficulty * 10;
-      const rarityBonus = card.rarity === 'epic' ? 50 : card.rarity === 'rare' ? 20 : 0;
-      return xp + baseXp + rarityBonus;
-    }, 0);
-    
-    // Calculate level based on XP
-    const level = Math.floor(totalXp / 100) + 1;
-    
-    // For demo mode, use pins count as "discoveries", for authenticated use hook's streak
-    const discoveries = authState === 'authenticated' ? hookStats.streak : pins.length;
-    
-    return {
-      totalCards: collectedCardsCount,
-      uniqueWords,
-      languages,
-      streak: discoveries,
-      level,
-      xp: totalXp,
-      achievements: hookStats.achievements
-    };
-  };
-
-  // Get current stats
-  const currentStats = calculateAppStats();
+  // Use hook's stats directly - the hook now handles both authenticated and demo modes
+  const currentStats = hookStats;
 
   // Initialize authentication on mount
   useEffect(() => {
@@ -422,7 +386,7 @@ function App() {
           <div className={`h-full overflow-y-auto ${isMobile ? 'p-4' : 'p-6'}`}>
             <CardGrid
               cards={collectedCards}
-              stats={authState === 'authenticated' ? hookStats : currentStats}
+              stats={currentStats}
               onCardClick={setSelectedCard}
             />
           </div>

@@ -3,6 +3,7 @@ import { VocabularyCard, CollectionStats, Achievement } from '../types/vocabular
 import { getUserCollectedCards, collectCard as supabaseCollectCard } from '../services/supabase';
 
 const STATS_KEY = 'languages-go-stats';
+const DEMO_CARDS_KEY = 'languages-go-demo-cards';
 
 const defaultStats: CollectionStats = {
   totalCards: 0,
@@ -66,6 +67,26 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
   const calculateLevel = (xp: number): number => {
     return Math.floor(xp / 100) + 1;
   };
+
+  // Save demo cards to localStorage for persistence
+  const saveDemoCards = useCallback((cards: VocabularyCard[]) => {
+    try {
+      localStorage.setItem(DEMO_CARDS_KEY, JSON.stringify(cards));
+    } catch (error) {
+      console.error('Failed to save demo cards:', error);
+    }
+  }, []);
+
+  // Load demo cards from localStorage
+  const loadDemoCards = useCallback((): VocabularyCard[] => {
+    try {
+      const saved = localStorage.getItem(DEMO_CARDS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Failed to load demo cards:', error);
+      return [];
+    }
+  }, []);
 
   const updateStatsFromCards = useCallback((cards: VocabularyCard[]) => {
     setStats(currentStats => {
@@ -213,21 +234,25 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
     });
   }, []); // Remove the dependency to prevent infinite loops
 
-  // Load data from Supabase and localStorage (for stats)
+  // Load data from Supabase and localStorage
   useEffect(() => {
     const loadData = async () => {
-      // Don't load data if user is not authenticated
-      if (!isAuthenticated) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        // Load collected cards from Supabase
-        const supabaseCards = await getUserCollectedCards();
-        setCollectedCards(supabaseCards);
+        let cards: VocabularyCard[] = [];
         
-        // Load stats from localStorage (will migrate to Supabase later)
+        if (isAuthenticated) {
+          // Load collected cards from Supabase for authenticated users
+          console.log('📚 Loading collected cards from Supabase...');
+          cards = await getUserCollectedCards();
+        } else {
+          // Load demo cards from localStorage for unauthenticated users
+          console.log('🎭 Loading demo cards from localStorage...');
+          cards = loadDemoCards();
+        }
+        
+        setCollectedCards(cards);
+        
+        // Load stats from localStorage
         const savedStats = localStorage.getItem(STATS_KEY);
         if (savedStats) {
           const parsedStats = JSON.parse(savedStats);
@@ -235,7 +260,9 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
         }
         
         // Recalculate stats based on current cards
-        updateStatsFromCards(supabaseCards);
+        updateStatsFromCards(cards);
+        
+        console.log(`✅ Loaded ${cards.length} collected cards`);
         
       } catch (error) {
         console.error('Failed to load collection data:', error);
@@ -247,7 +274,7 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
     };
     
     loadData();
-  }, [isAuthenticated, updateStatsFromCards]);
+  }, [isAuthenticated, updateStatsFromCards, loadDemoCards]);
 
   // Save stats to localStorage whenever they change
   useEffect(() => {
@@ -258,15 +285,24 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
 
   const collectCard = useCallback(async (card: VocabularyCard) => {
     try {
-      // Save to Supabase
-      await supabaseCollectCard(card);
-      
-      // Update local state
       const collectedCard = {
         ...card,
         collectedAt: new Date()
       };
       
+      if (isAuthenticated) {
+        // Save to Supabase for authenticated users
+        console.log('💾 Saving card to Supabase:', card.word);
+        await supabaseCollectCard(card);
+      } else {
+        // Save to localStorage for demo mode
+        console.log('🎭 Saving card to demo collection:', card.word);
+        const currentDemoCards = loadDemoCards();
+        const updatedDemoCards = [collectedCard, ...currentDemoCards];
+        saveDemoCards(updatedDemoCards);
+      }
+      
+      // Update local state
       setCollectedCards(prev => {
         const newCards = [collectedCard, ...prev];
         
@@ -276,11 +312,13 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
         return newCards;
       });
       
+      console.log('✅ Card collected successfully:', card.word);
+      
     } catch (error) {
       console.error('Failed to collect card:', error);
       throw error; // Re-throw so UI can handle the error
     }
-  }, [updateStatsFromCards]);
+  }, [isAuthenticated, updateStatsFromCards, loadDemoCards, saveDemoCards]);
 
   const getCardsByLanguage = useCallback((language: string) => {
     return collectedCards.filter(card => card.language === language);
@@ -291,11 +329,11 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
   }, [collectedCards]);
 
   const clearCollection = useCallback(() => {
-    // Note: This only clears local state and localStorage
-    // In a real app, you'd want to clear the user's collection in Supabase too
+    console.log('🗑️ Clearing collection');
     setCollectedCards([]);
     setStats(defaultStats);
     localStorage.removeItem(STATS_KEY);
+    localStorage.removeItem(DEMO_CARDS_KEY);
   }, []);
 
   return {

@@ -1,195 +1,210 @@
-# Web Camera Kit 📸
+# Languages Go! 🌍📸
 
-A **lightweight, mobile-optimized camera boilerplate** designed for AI vision and computer vision projects. Built with React, TypeScript, and modern web APIs.
+**Catch vocab in the wild** - An AI-powered language learning app that discovers vocabulary from real-world photos using Google Gemini.
 
 ## 🚀 Live Demo
 
-**[Learn More On Product Site](https://camera-kit.netlify.app)**
+Experience vocabulary discovery in action! Take photos of everyday objects and instantly learn words in 6 different languages.
 
-**[Live Demo](https://web-camera-kit-demo.netlify.app/)**
-
-<img src="./public/demo1.gif" alt="Example" width="700" />
+<img src="./public/demo1.gif" alt="Languages Go Demo" width="700" />
 
 ## ✨ Key Features
 
-### 📱 **Mobile-First Design**
-- Responsive interface optimized for mobile and desktop
-- PWA capabilities with offline support
-- Dynamic viewport handling for seamless mobile experience
+### 🤖 **AI-Powered Vocabulary Discovery**
+- **Google Gemini 2.5 Flash** integration for real-time photo analysis
+- Smart object detection and keyword extraction
+- Intelligent vocabulary matching with prioritization system
 
-### 📷 **Advanced Camera Functionality**
-- Photo and video capture with high-quality output
-- Real-time camera switching (front/back on mobile, device selection on desktop)
-- Live video processing with canvas-based frame manipulation
-- Robust error handling and retry mechanisms
+### 🌍 **Multi-Language Support**
+- **6 Languages**: Spanish 🇪🇸, French 🇫🇷, German 🇩🇪, Italian 🇮🇹, Japanese 🇯🇵, Thai 🇹🇭
+- Real-time language switching with beautiful flag-based UI
+- Normalized database architecture for scalable language expansion
 
-### 💾 **Smart Storage System**
-- IndexedDB integration for persistent media storage
-- Automatic data recovery when app reopens
-- Gallery with thumbnail generation for videos
+### 🎯 **Smart Learning Experience**
+- **Maximum 4 cards per photo** for optimal learning retention
+- Intelligent prioritization: Category → Difficulty → Rarity
+- Focus on practical vocabulary (people, home, objects, electronics)
 
-### 🎨 **Modern UI/UX**
-- Beautiful animations powered by GSAP
-- Glassmorphism design with backdrop blur effects
-- Adaptive layouts across all screen sizes
-- Accessibility-first approach
+### 📱 **Mobile-First PWA**
+- Responsive design optimized for mobile photography
+- PWA capabilities with branded install prompt
+- Offline-ready with local photo storage
 
-### ⚡ **Performance Optimized**
-- Lazy loading and efficient resource management
-- Service worker for offline functionality
-- Memory leak prevention with proper cleanup
+### 🗃️ **Advanced Database Architecture**
+- Multi-table vocabulary system with concepts, translations, and keywords
+- 24+ common vocabulary concepts across all supported languages
+- Efficient lookup and matching algorithms
 
 ## 🎯 Perfect For
 
-- **AI Vision Projects** - Ready-to-use camera input for ML models
-- **Computer Vision Applications** - Real-time video processing
-- **Educational Tools** - Clean codebase for learning
-- **Prototyping** - Quick setup for camera-based proof of concepts
+- **Language Learners** - Discover vocabulary from everyday surroundings
+- **Educators** - Interactive tool for vocabulary building
+- **Travelers** - Learn local language through real-world objects
+- **AI/ML Enthusiasts** - Example of Gemini Vision API integration
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18 + TypeScript
-- **Styling**: Tailwind CSS with custom animations
-- **Icons**: Lucide React
-- **Animations**: GSAP
-- **Storage**: IndexedDB for media persistence
-- **PWA**: Service Worker + Web App Manifest
-- **Build Tool**: Vite with PWA plugin
+### **Frontend**
+- **React 18** + TypeScript
+- **Tailwind CSS** with custom animations
+- **Lucide React** icons
+- **Vite** with PWA plugin
 
-## 📦 Installation
+### **Backend & AI**
+- **Supabase** for database and Edge Functions
+- **Google Gemini 2.5 Flash** for image analysis
+- **PostgreSQL** with Row Level Security
+- **Serverless architecture**
 
+### **Database Schema**
+- `vocabulary_concepts` - Language-agnostic vocabulary concepts
+- `vocabulary_translations` - Language-specific translations
+- `vocabulary_keywords` - Detection keywords with confidence scores
+- `user_collections` - User's collected vocabulary cards
+
+## 📦 Installation & Setup
+
+### 1. Clone Repository
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/web-camera-kit.git
-cd web-camera-kit
-
-# Install dependencies
+git clone https://github.com/yourusername/languages-go-webapp-demo.git
+cd languages-go-webapp-demo
 npm install
+```
 
-# Start development server
+### 2. Supabase Setup
+```bash
+# Install Supabase CLI
+npm install -g @supabase/cli
+
+# Login to Supabase
+supabase login
+
+# Link to your project
+supabase link --project-ref YOUR_PROJECT_ID
+
+# Deploy Edge Function
+supabase functions deploy find-vocabulary-for-photo
+```
+
+### 3. Environment Configuration
+```bash
+# Set Gemini API key in Supabase secrets
+supabase secrets set GEMINI_API_KEY=your_gemini_api_key_here
+
+# Update src/services/config.ts
+export const API_CONFIG = {
+  USE_REAL_GEMINI_API: true,
+  DEFAULT_LANGUAGE: 'es'
+};
+```
+
+### 4. Database Setup
+```bash
+# Run migrations to set up vocabulary tables
+supabase db push
+
+# Seed with vocabulary data (included in migration)
+# 24 concepts × 7 languages = 168 translations ready to use
+```
+
+### 5. Start Development
+```bash
 npm run dev
+```
 
-# Build for production
-npm run build
+## 🧪 How It Works
+
+### **Photo → Vocabulary Flow**
+1. **📸 Photo Capture** - User takes photo of real-world objects
+2. **🤖 Gemini Analysis** - AI identifies objects and extracts keywords
+3. **🔍 Database Lookup** - Keywords matched against vocabulary database
+4. **🎯 Smart Selection** - Top 4 most relevant vocabulary cards selected
+5. **🃏 Learning Cards** - Display translations in user's target language
+
+### **Example Discovery**
+```
+Photo of: Kitchen scene
+Gemini detects: "man, chair, table, cup, plant, window"
+User learning: Spanish 🇪🇸
+Cards generated:
+├── man → hombre (people, difficulty: 1)
+├── chair → silla (home, difficulty: 1)  
+├── table → mesa (home, difficulty: 1)
+└── cup → taza (objects, difficulty: 1)
 ```
 
 ## 🚀 Deployment
 
-### Netlify (Recommended)
+### Netlify/Vercel (Frontend)
 ```bash
 npm run build
-# Deploy the 'dist' folder to Netlify
+# Deploy 'dist' folder
 ```
 
-Works with any static hosting: Vercel, GitHub Pages, AWS S3, Firebase Hosting.
+### Supabase (Backend)
+```bash
+# Edge Function auto-deployed
+# Database migrations auto-applied
+# Secrets configured via dashboard
+```
 
 ## 🔧 Configuration
 
-### Environment Variables
-```env
-# Disable loading screen (optional)
-VITE_APP_DISABLE_LOADING_SCREEN=false
+### Language Support
+Add new languages by:
+1. Adding translations to `vocabulary_translations` table
+2. Updating language selector in `src/components/Layout/Header.tsx`
+3. Adding flag emoji and language name
 
-# Disable PWA features (optional)
-VITE_APP_DISABLE_PWA=false
-```
+### Vocabulary Expansion
+```sql
+-- Add new concept
+INSERT INTO vocabulary_concepts (concept_key, category, difficulty, rarity)
+VALUES ('ANIMAL_PET_DOG', 'animals', 1, 'common');
 
-### Camera Settings
-```typescript
-// Modify in src/components/CameraPreview.tsx
-const videoConstraints = {
-  width: { ideal: 1920, max: 2560 },
-  height: { ideal: 1080, max: 1440 },
-  frameRate: { ideal: 30, max: 60 }
-};
+-- Add translations
+INSERT INTO vocabulary_translations (concept_id, language_code, word, pronunciation)
+VALUES 
+  (concept_id, 'es', 'perro', '/ˈpe.ro/'),
+  (concept_id, 'fr', 'chien', '/ʃjɛ̃/');
+
+-- Add detection keywords  
+INSERT INTO vocabulary_keywords (concept_id, keyword, language_code, confidence)
+VALUES (concept_id, 'dog', 'en', 1.0);
 ```
 
 ## 📱 Browser Compatibility
 
 | Feature | Chrome | Firefox | Safari | Edge |
 |---------|--------|---------|--------|------|
-| Photo Capture | ✅ | ✅ | ✅ | ✅ |
-| Video Recording | ✅ | ✅ | ✅ | ✅ |
-| Camera Switching | ✅ | ✅ | ✅ | ✅ |
+| Camera Access | ✅ | ✅ | ✅ | ✅ |
+| Gemini API | ✅ | ✅ | ✅ | ✅ |
 | PWA Install | ✅ | ✅ | ✅ | ✅ |
-
-**Minimum Versions**: Chrome 63+, Firefox 65+, Safari 12+, Edge 79+
-
-## 🏗️ Architecture
-
-### Project Structure
-```
-src/
-├── components/          # React components
-│   ├── CameraPreview.tsx    # Main camera interface
-│   ├── MediaGallery.tsx     # Gallery with thumbnails
-│   └── MediaPreviewModal.tsx # Full-screen viewer
-├── hooks/               # Custom React hooks
-│   ├── useMediaCapture.ts   # Media capture logic
-│   └── useMobileDetection.ts # Device detection
-├── utils/               # Utility functions
-│   ├── indexedDb.ts         # Database operations
-│   └── pwa.ts              # PWA management
-└── types/               # TypeScript definitions
-```
-
-### Key Components
-
-- **CameraPreview**: Camera initialization, switching, and capture
-- **MediaGallery**: Media display with thumbnails and batch operations  
-- **MediaPreviewModal**: Full-screen viewing and sharing
-- **useMediaCapture**: Media state management and IndexedDB persistence
-- **useMobileDetection**: Device type detection and responsive behavior
+| Offline Mode | ✅ | ✅ | ✅ | ✅ |
 
 ## 🔐 Security & Privacy
 
-- **No external data transmission** - All media stays on device
-- **Local storage only** - IndexedDB for client-side persistence
-- **HTTPS required** - Enforced for camera API access
+- **Secure API calls** via Supabase Edge Functions
+- **No direct Gemini API exposure** to frontend
+- **Row Level Security** for user data
+- **Anonymous mode** supported for demos
+- **Local photo storage** with automatic cleanup
 
-## 🔧 Development
+## 📊 Performance
 
-### Available Scripts
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production  
-npm run preview      # Preview production build
-npm run lint         # Run ESLint
-```
-
-### Integration Examples
-
-#### AI Model Integration
-```typescript
-const processWithAI = async (imageBlob: Blob) => {
-  const formData = new FormData();
-  formData.append('image', imageBlob);
-  
-  const response = await fetch('/api/ai-process', {
-    method: 'POST',
-    body: formData
-  });
-  
-  return response.json();
-};
-```
-
-#### Computer Vision
-```typescript
-const processWithOpenCV = (canvas: HTMLCanvasElement) => {
-  const src = cv.imread(canvas);
-  // Your CV processing here
-  cv.imshow('output', src);
-  src.delete();
-};
-```
+- **Smart vocabulary limiting** (4 cards max) for optimal UX
+- **Efficient database queries** with proper indexing
+- **Image compression** before API calls
+- **Caching strategies** for vocabulary data
+- **Lazy loading** for better mobile performance
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
 ## 📄 License
 
@@ -197,11 +212,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- [React](https://reactjs.org/) - UI library
-- [Tailwind CSS](https://tailwindcss.com/) - Styling framework
-- [GSAP](https://greensock.com/gsap/) - Animation library
-- [Vite](https://vitejs.dev/) - Build tool
+- [Google Gemini](https://ai.google.dev/) - AI vision capabilities
+- [Supabase](https://supabase.com/) - Backend infrastructure
+- [React](https://reactjs.org/) - Frontend framework
+- [Tailwind CSS](https://tailwindcss.com/) - Styling system
 
 ---
 
-*Ready to build camera-powered applications? Star ⭐ this repo and start creating!*
+**Ready to catch vocab in the wild?** 🌍✨

@@ -113,18 +113,23 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Check permissions on mount
+  // Check permissions on mount - This is now handled by the LoadingScreen flow
   useEffect(() => {
-    const checkPermissions = async () => {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        setPermissionState('granted');
-      } catch (error) {
-        setPermissionState('denied');
-      }
-    };
-    
-    checkPermissions();
+    // const checkPermissions = async () => {
+    //   try {
+    //     // This is a passive check. It will fail if permission is not already granted.
+    //     // The actual request happens in the LoadingScreen.
+    //     const stream = await navigator.mediaDevices.enumerateDevices();
+    //     const hasCamera = stream.some(device => device.kind === 'videoinput');
+    //     if (hasCamera) {
+    //       // A camera exists, but we don't know the permission state yet.
+    //       // We'll let the LoadingScreen handle the actual request.
+    //     }
+    //   } catch (error) {
+    //     setPermissionState('denied');
+    //   }
+    // };
+    // checkPermissions();
   }, []);
 
   // Load pins from local storage on app initialization

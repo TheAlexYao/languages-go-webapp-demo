@@ -1,376 +1,169 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { Camera, MapPin, Zap, Shield, Sparkles } from 'lucide-react';
+import { Camera, MapPin, Check, ArrowRight } from 'lucide-react';
+
+type PermissionStep = 'intro' | 'camera' | 'location' | 'complete';
 
 interface LoadingScreenProps {
   onPermissionGranted: () => void;
   onPermissionDenied: () => void;
   isPWA?: boolean;
-  isInitialCheck?: boolean;
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   onPermissionGranted,
   onPermissionDenied,
   isPWA = false,
-  isInitialCheck = false
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const privacyRef = useRef<HTMLParagraphElement>(null);
-  const orbRef = useRef<HTMLDivElement>(null);
-  
+  const [step, setStep] = useState<PermissionStep>('intro');
   const [isRequesting, setIsRequesting] = useState(false);
-  const [hasAnimatedIn, setHasAnimatedIn] = useState(false);
-  const [showButton, setShowButton] = useState(false);
-  const [requestStep, setRequestStep] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Skip animation for initial permission checks in PWA to make it faster
-  const shouldSkipAnimation = isPWA && isInitialCheck;
-
-  // Set initial hidden state immediately on mount
-  useEffect(() => {
-    if (!shouldSkipAnimation) {
-      // Immediately hide all elements before any animation
-      gsap.set([logoRef.current, titleRef.current, subtitleRef.current, privacyRef.current], {
-        opacity: 0,
-        y: 30
-      });
-
-      gsap.set(orbRef.current, {
-        scale: 0,
-        rotation: -180
-      });
-
-      // Button uses CSS transition, not GSAP
-      setShowButton(false);
-    } else {
-      // For PWA initial checks, show elements immediately
-      gsap.set([logoRef.current, titleRef.current, subtitleRef.current, privacyRef.current], {
-        opacity: 1,
-        y: 0
-      });
-
-      gsap.set(orbRef.current, {
-        scale: 1,
-        rotation: 0
-      });
-      setShowButton(true);
-      setHasAnimatedIn(true);
-    }
-  }, [shouldSkipAnimation]);
-
-  // Initial entrance animation
-  useEffect(() => {
-    if (!hasAnimatedIn && !shouldSkipAnimation) {
-      const tl = gsap.timeline({
-        onComplete: () => setHasAnimatedIn(true)
-      });
-
-      // Animate entrance
-      tl.to(orbRef.current, {
-        scale: 1,
-        rotation: 0,
-        duration: 1.2,
-        ease: "back.out(1.7)"
-      })
-      .to(logoRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        ease: "power3.out"
-      }, "-=0.6")
-      .to(titleRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        ease: "power3.out"
-      }, "-=0.4")
-      .to(subtitleRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        ease: "power3.out"
-      }, "-=0.4")
-      .call(() => {
-        // Show button with CSS transition instead of GSAP
-        setShowButton(true);
-      }, [], "-=0.4")
-      .to(privacyRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        ease: "power3.out"
-      }, "-=0.2");
-    }
-  }, [hasAnimatedIn, shouldSkipAnimation]);
-
-  // Continuous animations
-  useEffect(() => {
-    if (!hasAnimatedIn || shouldSkipAnimation) return;
-
-    // Floating orb animation
-    gsap.to(orbRef.current, {
-      y: -10,
-      duration: 2,
-      ease: "power2.inOut",
-      yoyo: true,
-      repeat: -1
-    });
-
-    // Pulsing glow effect
-    gsap.to(logoRef.current, {
-      scale: 1.05,
-      duration: 2,
-      ease: "power2.inOut",
-      yoyo: true,
-      repeat: -1
-    });
-
-  }, [hasAnimatedIn, shouldSkipAnimation]);
-
-  const requestPermissions = async () => {
+  const requestCameraPermission = async () => {
     setIsRequesting(true);
-    
-    // Button loading animation
-    if (buttonRef.current) {
-      gsap.to(buttonRef.current, {
-        scale: 0.95,
-        duration: 0.1,
-        yoyo: true,
-        repeat: 1
-      });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      stream.getTracks().forEach(track => track.stop());
+      setStep('location');
+    } catch (error) {
+      console.error('Camera permission denied:', error);
+      onPermissionDenied();
+    } finally {
+      setIsRequesting(false);
+    }
+  };
+
+  const requestLocationPermission = async () => {
+    setIsRequesting(true);
+    if (!navigator.geolocation) {
+      console.warn('Geolocation not supported, skipping.');
+      setStep('complete');
+      return;
     }
 
     try {
-      // Step 1: Request Camera Permission
-      setRequestStep('Requesting camera access...');
-      await new Promise(resolve => setTimeout(resolve, isPWA ? 500 : 300));
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: false 
-      });
-      
-      // Stop the stream immediately - we just needed permission
-      stream.getTracks().forEach(track => track.stop());
-      
-      // Step 2: Request Location Permission
-      setRequestStep('Requesting location access...');
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
       await new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          console.warn('Geolocation not supported - proceeding without location');
-          resolve(null);
-          return;
-        }
-
         navigator.geolocation.getCurrentPosition(
           (position) => {
             console.log('Location permission granted:', position.coords);
             resolve(position);
           },
           (error) => {
-            console.warn('Location permission denied - proceeding anyway:', error);
-            // Don't reject - we'll proceed without location
+            console.warn('Location permission denied, continuing.', error.message);
+            // Don't reject, just resolve to continue the flow
             resolve(null);
           },
-          {
-            enableHighAccuracy: false,
-            timeout: 5000,
-            maximumAge: 300000
-          }
+          { timeout: 10000, enableHighAccuracy: true }
         );
       });
-
-      setRequestStep('Complete!');
-      await new Promise(resolve => setTimeout(resolve, isPWA ? 400 : 200));
-      
-      // Success animation
-      if (!shouldSkipAnimation) {
-        const tl = gsap.timeline({
-          onComplete: () => {
-            setTimeout(onPermissionGranted, 500);
-          }
-        });
-
-        tl.to(containerRef.current, {
-          scale: 1.02,
-          duration: 0.3,
-          ease: "power2.out"
-        })
-        .to(containerRef.current, {
-          opacity: 0,
-          scale: 0.98,
-          duration: 0.5,
-          ease: "power2.in"
-        });
-      } else {
-        // For PWA, skip animation and proceed immediately
-        onPermissionGranted();
-      }
-
     } catch (error) {
-      console.error('Permission denied:', error);
-      setIsRequesting(false);
-      setRequestStep('');
-      
-      // Error shake animation
-      if (!shouldSkipAnimation && containerRef.current) {
-        gsap.to(containerRef.current, {
-          x: -5,
-          duration: 0.1,
-          yoyo: true,
-          repeat: 3,
-          ease: "power2.inOut",
-          onComplete: () => {
-            gsap.set(containerRef.current, { x: 0 });
-            onPermissionDenied();
-          }
-        });
-      } else {
-        onPermissionDenied();
-      }
+       console.error('Error requesting location:', error);
+    } finally {
+       setStep('complete');
+       setIsRequesting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (step === 'complete') {
+      gsap.to(containerRef.current, {
+        opacity: 0,
+        scale: 0.95,
+        duration: 0.5,
+        ease: "power2.in",
+        onComplete: onPermissionGranted
+      });
+    }
+  }, [step, onPermissionGranted]);
+
+  const renderContent = () => {
+    switch (step) {
+      case 'camera':
+        return (
+          <PermissionCard
+            icon={<Camera className="h-8 w-8" />}
+            title="Enable Your Camera"
+            description="We need camera access to let you capture objects and discover new vocabulary in the world around you."
+            buttonText="Allow Camera"
+            onAction={requestCameraPermission}
+            isRequesting={isRequesting}
+          />
+        );
+      case 'location':
+        return (
+          <PermissionCard
+            icon={<MapPin className="h-8 w-8" />}
+            title="Enable Location (Optional)"
+            description="Location helps you remember where you discovered words by pinning them on a map. You can skip this if you prefer."
+            buttonText="Allow Location"
+            onAction={requestLocationPermission}
+            isRequesting={isRequesting}
+            showSkip
+            onSkip={() => setStep('complete')}
+          />
+        );
+      case 'intro':
+      default:
+        return (
+          <PermissionCard
+            icon={<img src="/icons/map-kun.svg" alt="Languages Go" className="h-10 w-10" />}
+            title="Welcome to Languages Go!"
+            description="Before you start your adventure, we need to set up a few things to get you ready."
+            buttonText="Get Started"
+            onAction={() => setStep('camera')}
+          />
+        );
     }
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      className="fixed inset-0 flex items-center justify-center p-6 overflow-hidden"
-      style={{
-        background: `
-          radial-gradient(ellipse at 20% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-          radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
-          radial-gradient(ellipse at 40% 40%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-          linear-gradient(135deg, #0a0a0a 0%, #111111 25%, #0f0f0f 50%, #0d0d0d 75%, #0a0a0a 100%)
-        `
-      }}
+      className="fixed inset-0 flex items-center justify-center p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
     >
-      {/* Animated Background */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-gradient-to-r from-blue-500/30 to-cyan-400/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-gradient-to-l from-purple-500/25 to-indigo-400/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-br from-teal-400/20 to-blue-600/15 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-3/4 left-1/6 w-48 h-48 bg-gradient-to-tr from-cyan-300/15 to-blue-400/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '3s' }}></div>
-      </div>
-
-      {/* Main Content */}
-      <div className="relative z-10 text-center max-w-md w-full">
-        {/* Floating Orb */}
-        <div ref={orbRef} className="relative mx-auto mb-8 w-32 h-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-zinc-700 to-zinc-600 rounded-full blur-xl opacity-40"></div>
-          <div className="relative bg-gradient-to-br from-zinc-800 via-zinc-700 to-zinc-900 rounded-full w-full h-full flex items-center justify-center shadow-2xl border border-zinc-600/30">
-            <div ref={logoRef} className="text-white">
-              <img 
-                src="/icons/map-kun.svg" 
-                alt="Languages Go Logo" 
-                className="h-20 w-20 drop-shadow-lg" 
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Title */}
-        <h1 ref={titleRef} className="text-4xl font-bold text-white mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-sans">
-          Languages Go!
-        </h1>
-
-        {/* Subtitle */}
-        <div ref={subtitleRef} className="text-gray-400 text-sm mb-8 leading-relaxed font-sans font-medium space-y-1">
-          {isInitialCheck && isPWA 
-            ? <p>Checking camera access...</p>
-            : (
-                <>
-                  <p>Catch vocabulary in the wild</p>
-                  <p>A Pokémon Go style language adventure</p>
-                  <p>—right in your browser</p>
-                </>
-              )
-          }
-        </div>
-
-        {/* Permission Button */}
-        {!isInitialCheck && (
-        <button
-          ref={buttonRef}
-          onClick={requestPermissions}
-          disabled={isRequesting}
-          className={`
-            w-full text-white py-4 px-8 rounded-2xl font-semibold text-lg font-sans
-            shadow-2xl shadow-black/30 border border-white/20 backdrop-blur-xl
-            transition-all duration-800 transform
-            disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100
-            relative overflow-hidden group
-            hover:scale-105 active:scale-95
-            ${showButton ? 'opacity-100' : 'opacity-0'}
-          `}
-          style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: `
-              0 8px 32px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.2),
-              inset 0 -1px 0 rgba(255, 255, 255, 0.1)
-            `
-          }}
-          onMouseEnter={(e) => {
-            if (!isRequesting) {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isRequesting) {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-            }
-          }}
-        >
-          <div className="relative z-10 flex items-center justify-center space-x-3">
-            {isRequesting ? (
-              <>
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                <span>{requestStep || 'Requesting Access...'}</span>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center space-x-2">
-                  <Camera className="h-5 w-5" />
-                  <MapPin className="h-5 w-5" />
-                </div>
-                <span>Enable Camera & Location</span>
-              </>
-            )}
-          </div>
-          
-          {/* Button glow effect */}
-          <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl pointer-events-none"></div>
-        </button>
-        )}
-
-        {/* Initial Check Loading */}
-        {isInitialCheck && isPWA && (
-          <div className="flex items-center justify-center space-x-3 py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-            <span className="text-white font-medium">Initializing...</span>
-          </div>
-        )}
-
-        {/* Privacy Note */}
-        <p 
-          ref={privacyRef}
-          className="text-[10px] text-gray-500 mt-6 leading-tight max-w-[360px] mx-auto font-sans font-light"
-        >
-          {isPWA 
-            ? 'PWA mode: Enhanced offline capabilities. Your privacy is protected.'
-            : 'Your privacy is protected. Camera access is only used for capturing media. No data is stored or transmitted externally.'
-          }
-        </p>
-      </div>
+      {renderContent()}
     </div>
   );
 };
+
+// Helper component for the card UI
+interface PermissionCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  buttonText: string;
+  onAction: () => void;
+  isRequesting?: boolean;
+  showSkip?: boolean;
+  onSkip?: () => void;
+}
+
+const PermissionCard: React.FC<PermissionCardProps> = ({
+  icon, title, description, buttonText, onAction, isRequesting, showSkip, onSkip
+}) => (
+  <div className="bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+      {icon}
+    </div>
+    <h1 className="text-2xl font-bold text-white mb-3">{title}</h1>
+    <p className="text-gray-400 text-sm mb-8">{description}</p>
+    <div className="space-y-3">
+      <button
+        onClick={onAction}
+        disabled={isRequesting}
+        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center space-x-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+      >
+        {isRequesting ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Check />}
+        <span>{buttonText}</span>
+      </button>
+      {showSkip && (
+        <button
+          onClick={onSkip}
+          className="w-full text-gray-400 text-sm py-2 px-4 rounded-xl hover:bg-white/10 transition-colors"
+        >
+          Skip for Now
+        </button>
+      )}
+    </div>
+  </div>
+);

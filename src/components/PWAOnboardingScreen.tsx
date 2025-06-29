@@ -158,7 +158,7 @@ export const PWAOnboardingScreen: React.FC<PWAOnboardingScreenProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="fixed inset-0 flex items-center justify-center p-6 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
+      className="fixed inset-0 p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-y-auto"
     >
       {/* Background Effects */}
       <div className="absolute inset-0 opacity-20">
@@ -167,7 +167,7 @@ export const PWAOnboardingScreen: React.FC<PWAOnboardingScreenProps> = ({
       </div>
 
       {/* Main Content */}
-      <div className={`relative z-10 w-full ${isMobile ? 'max-w-sm' : 'max-w-lg'} text-center`}>
+      <div className={`relative z-10 w-full ${isMobile ? 'max-w-sm' : 'max-w-lg'} text-center mx-auto py-12`}>
         
         {/* Hero Section */}
         <div ref={heroRef} className="mb-8">

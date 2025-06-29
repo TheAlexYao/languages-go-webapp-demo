@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Star, Volume2, BookOpen, Trophy, Sparkles } from 'lucide-react';
+import { Star, BookOpen, Trophy, Sparkles } from 'lucide-react';
 import { VocabularyCard as VocabularyCardType } from '../../types/vocabulary';
+import { AudioButton } from '../UI/AudioButton';
 
 interface VocabularyCardProps {
   card: VocabularyCardType;
@@ -58,17 +59,6 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
     e.stopPropagation();
     if (onCollect && !isCollected) {
       onCollect(card);
-    }
-  };
-
-  const playPronunciation = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(card.word);
-      utterance.lang = card.language === 'Spanish' ? 'es-ES' : 
-                      card.language === 'French' ? 'fr-FR' : 
-                      card.language === 'German' ? 'de-DE' : 'en-US';
-      speechSynthesis.speak(utterance);
     }
   };
 
@@ -154,13 +144,14 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
             
             {/* Action buttons */}
             <div className="flex items-center justify-between">
-              <button
-                onClick={playPronunciation}
-                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-all duration-200 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl font-medium shadow-sm"
-              >
-                <Volume2 className="h-4 w-4" />
-                <span className="text-sm">Listen</span>
-              </button>
+              <AudioButton
+                text={card.word}
+                language={card.language}
+                size="sm"
+                variant="secondary"
+                showFlag={true}
+                showText={false}
+              />
               
               {showCollectButton && !isCollected && (
                 <button
@@ -203,10 +194,21 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
               <div className="flex-1 space-y-5">
                 {/* Pronunciation */}
                 <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-                  <h4 className="font-bold mb-2 flex items-center">
-                    <Volume2 className="h-4 w-4 mr-2" />
-                    Pronunciation
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-bold flex items-center">
+                      <span className="mr-2">🔊</span>
+                      Pronunciation
+                    </h4>
+                    <AudioButton
+                      text={card.word}
+                      language={card.language}
+                      size="sm"
+                      variant="minimal"
+                      showFlag={false}
+                      showText={false}
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                    />
+                  </div>
                   <p className="text-sm opacity-90 font-mono">{card.pronunciation || `/${card.word}/`}</p>
                 </div>
                 

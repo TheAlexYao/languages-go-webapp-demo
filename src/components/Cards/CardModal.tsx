@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, Volume2, BookOpen, MapPin, Calendar, Star, Trophy } from 'lucide-react';
+import { X, BookOpen, MapPin, Calendar, Star, Trophy } from 'lucide-react';
 import { VocabularyCard } from '../../types/vocabulary';
+import { AudioButton } from '../UI/AudioButton';
 
 interface CardModalProps {
   card: VocabularyCard;
@@ -13,16 +14,6 @@ export const CardModal: React.FC<CardModalProps> = ({ card, onClose }) => {
       case 'epic': return 'from-purple-500 to-pink-500';
       case 'rare': return 'from-blue-500 to-cyan-500';
       default: return 'from-gray-400 to-gray-600';
-    }
-  };
-
-  const playPronunciation = () => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(card.word);
-      utterance.lang = card.language === 'Spanish' ? 'es-ES' : 
-                      card.language === 'French' ? 'fr-FR' : 
-                      card.language === 'German' ? 'de-DE' : 'en-US';
-      speechSynthesis.speak(utterance);
     }
   };
 
@@ -89,15 +80,17 @@ export const CardModal: React.FC<CardModalProps> = ({ card, onClose }) => {
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-800 flex items-center">
-                  <Volume2 className="h-4 w-4 mr-2" />
+                  <span className="mr-2">🔊</span>
                   Pronunciation
                 </h3>
-                <button
-                  onClick={playPronunciation}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm transition-colors"
-                >
-                  Listen
-                </button>
+                <AudioButton
+                  text={card.word}
+                  language={card.language}
+                  size="md"
+                  variant="primary"
+                  showFlag={true}
+                  showText={true}
+                />
               </div>
               <p className="text-gray-600">{card.pronunciation || `/${card.word}/`}</p>
             </div>

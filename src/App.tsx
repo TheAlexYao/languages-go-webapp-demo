@@ -471,13 +471,12 @@ function App() {
         )}
       </main>
 
-      {/* Mobile Tab Navigation - Always visible on mobile */}
-      {isMobile && (
-        <TabNavigation
-          activeTab={currentTab}
-          onTabChange={setCurrentTab}
-        />
-      )}
+      {/* Tab Navigation - now always visible */}
+      <TabNavigation
+        activeTab={currentTab}
+        onTabChange={setCurrentTab}
+        isMobile={isMobile}
+      />
 
       {/* Card Modal */}
       {selectedCard && (

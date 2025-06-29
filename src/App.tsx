@@ -450,7 +450,6 @@ function App() {
         <TabNavigation
           activeTab={currentTab}
           onTabChange={setCurrentTab}
-          collectionCount={collectedCards.length}
         />
       )}
 

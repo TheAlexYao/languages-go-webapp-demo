@@ -4,18 +4,16 @@ import { Map, BookOpen, Users, Camera } from 'lucide-react';
 interface TabNavigationProps {
   activeTab: 'camera' | 'map' | 'collection' | 'community';
   onTabChange: (tab: 'camera' | 'map' | 'collection' | 'community') => void;
-  collectionCount: number;
 }
 
 export const TabNavigation: React.FC<TabNavigationProps> = ({
   activeTab,
-  onTabChange,
-  collectionCount
+  onTabChange
 }) => {
   const tabs = [
     { id: 'camera' as const, icon: Camera, label: 'Discover' },
     { id: 'map' as const, icon: Map, label: 'Explore' },
-    { id: 'collection' as const, icon: BookOpen, label: 'Collection', badge: collectionCount },
+    { id: 'collection' as const, icon: BookOpen, label: 'Collection' },
     { id: 'community' as const, icon: Users, label: 'Community' }
   ];
 
@@ -27,7 +25,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
       {/* Safe area padding for devices with home indicators */}
       <div className="pb-safe">
         <div className="flex items-center justify-around py-2 px-2 max-w-md mx-auto">
-          {tabs.map(({ id, icon: Icon, label, badge }) => (
+          {tabs.map(({ id, icon: Icon, label }) => (
             <button
               key={id}
               onClick={() => onTabChange(id)}
@@ -52,11 +50,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 {label}
               </span>
               
-              {badge !== undefined && badge > 0 && (
-                <div className="absolute -top-1 -right-1 bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg border-2 border-slate-800 animate-bounce">
-                  {badge > 99 ? '99+' : badge}
-                </div>
-              )}
+
             </button>
           ))}
         </div>

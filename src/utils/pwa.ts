@@ -13,6 +13,8 @@ export class PWAManager {
   private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private isInstalled = false;
   private installCallbacks: Array<(canInstall: boolean) => void> = [];
+  private readonly DISMISS_KEY = 'pwa-install-dismissed';
+  private readonly DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
   constructor() {
     this.init();
@@ -35,6 +37,7 @@ export class PWAManager {
       console.log('PWA: App was installed');
       this.isInstalled = true;
       this.deferredPrompt = null;
+      this.clearDismissal(); // Clear dismissal when app is installed
       this.notifyInstallCallbacks(false);
     });
 
@@ -102,6 +105,48 @@ export class PWAManager {
     this.installCallbacks.forEach(callback => callback(canInstall));
   }
 
+  private isDismissed(): boolean {
+    try {
+      const dismissedData = localStorage.getItem(this.DISMISS_KEY);
+      if (!dismissedData) return false;
+
+      const { timestamp } = JSON.parse(dismissedData);
+      const now = Date.now();
+      
+      // Check if dismissal has expired
+      if (now - timestamp > this.DISMISS_DURATION) {
+        this.clearDismissal();
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('PWA: Error checking dismissal status', error);
+      return false;
+    }
+  }
+
+  private setDismissed() {
+    try {
+      const dismissData = {
+        timestamp: Date.now()
+      };
+      localStorage.setItem(this.DISMISS_KEY, JSON.stringify(dismissData));
+      console.log('PWA: Install prompt dismissed for 7 days');
+    } catch (error) {
+      console.error('PWA: Error setting dismissal', error);
+    }
+  }
+
+  private clearDismissal() {
+    try {
+      localStorage.removeItem(this.DISMISS_KEY);
+      console.log('PWA: Install prompt dismissal cleared');
+    } catch (error) {
+      console.error('PWA: Error clearing dismissal', error);
+    }
+  }
+
   public async promptInstall(): Promise<boolean> {
     if (!this.deferredPrompt) {
       console.log('PWA: No install prompt available');
@@ -116,6 +161,7 @@ export class PWAManager {
       
       if (choiceResult.outcome === 'accepted') {
         this.deferredPrompt = null;
+        this.clearDismissal(); // Clear dismissal on successful install
         return true;
       }
       
@@ -127,11 +173,16 @@ export class PWAManager {
   }
 
   public canInstall(): boolean {
-    return !this.isInstalled && this.deferredPrompt !== null;
+    return !this.isInstalled && this.deferredPrompt !== null && !this.isDismissed();
   }
 
   public isAppInstalled(): boolean {
     return this.isInstalled;
+  }
+
+  public dismissInstallPrompt() {
+    this.setDismissed();
+    this.notifyInstallCallbacks(false);
   }
 
   public onInstallAvailable(callback: (canInstall: boolean) => void) {

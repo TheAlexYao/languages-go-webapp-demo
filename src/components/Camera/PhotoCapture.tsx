@@ -8,12 +8,14 @@ import { VocabularyCard, PhotoPin } from '../../types/vocabulary';
 
 interface PhotoCaptureProps {
   onCardsGenerated: (cards: VocabularyCard[], pin: PhotoPin) => void;
-  onProcessingStateChange: (isProcessing: boolean) => void;
+  isEnabled?: boolean;
+  selectedLanguage?: string;
 }
 
 export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   onCardsGenerated,
-  onProcessingStateChange
+  isEnabled = true,
+  selectedLanguage = 'es'
 }) => {
   const webcamRef = useRef<Webcam>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -22,11 +24,10 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   const { getCurrentLocation, location, accuracy, isLoading: locationLoading, error: locationError, retryLocation } = useGeolocation();
 
   const capturePhoto = useCallback(async () => {
-    if (!webcamRef.current || isProcessing) return;
+    if (!webcamRef.current || isProcessing || !isEnabled) return;
 
     try {
       setIsProcessing(true);
-      onProcessingStateChange(true);
       
       // Step 1: Get location (with fallback)
       setProcessingStep('Getting location...');
@@ -47,15 +48,18 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       const imageSrc = webcamRef.current.getScreenshot();
       if (!imageSrc) throw new Error('Failed to capture photo');
 
-      // Step 3: Analyze photo and find cards using Supabase Edge Function
-      setProcessingStep('Analyzing photo...');
+      // Step 3: Analyze photo and find cards using Gemini API
+      setProcessingStep('Analyzing photo with AI...');
       const imageBase64 = imageSrc.split(',')[1]; // Remove data:image/jpeg;base64, prefix
       
-      setProcessingStep('Finding vocabulary cards...');
+      setProcessingStep('Identifying objects...');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
+      
+      setProcessingStep('Finding vocabulary matches...');
       const { cards, pin } = await findCardsFromPhoto(imageBase64, {
         lat: currentLocation.lat,
         lng: currentLocation.lng
-      });
+      }, selectedLanguage); // Pass selected language
 
       // Add hasCollectedAll property to pin
       const enhancedPin: PhotoPin = {
@@ -68,15 +72,27 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
 
     } catch (error) {
       console.error('Photo capture failed:', error);
-      setProcessingStep('Error occurred');
+      
+      // Determine user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('User authentication required')) {
+        setProcessingStep('Authentication required');
+      } else if (errorMessage.includes('Photo analysis failed')) {
+        setProcessingStep('Unable to analyze photo');
+      } else if (errorMessage.includes('No vocabulary matches')) {
+        setProcessingStep('No new words found, try another photo!');
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        setProcessingStep('Connection error, please try again');
+      } else {
+        setProcessingStep('Error occurred, please try again');
+      }
     } finally {
       setTimeout(() => {
         setIsProcessing(false);
-        onProcessingStateChange(false);
         setProcessingStep('');
       }, 1000);
     }
-  }, [webcamRef, isProcessing, location, getCurrentLocation, onCardsGenerated, onProcessingStateChange]);
+  }, [webcamRef, isProcessing, isEnabled, selectedLanguage, location, getCurrentLocation, onCardsGenerated]);
 
   const handleRetryLocation = useCallback(() => {
     retryLocation().catch(console.error);

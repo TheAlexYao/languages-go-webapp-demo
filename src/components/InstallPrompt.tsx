@@ -54,40 +54,40 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onClose }) => {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:max-w-sm">
-      <div className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-700 rounded-2xl p-4 shadow-2xl">
+      <div className="bg-gradient-to-br from-blue-600/95 to-purple-600/95 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-2xl">
         <div className="flex items-start space-x-3">
           <div className="flex-shrink-0">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
               <img 
-                src="/pwa-image.png" 
-                alt="App Icon" 
-                className="h-8 w-8 rounded-lg" 
+                src="/icons/map-kun.svg" 
+                alt="Languages Go! Logo" 
+                className="h-8 w-8" 
               />
             </div>
           </div>
           
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-white mb-1">
-              Install CameraApp
+            <h3 className="text-sm font-bold text-white mb-1">
+              Install Languages Go!
             </h3>
-            <p className="text-xs text-zinc-400 mb-3">
-              Add to your home screen for quick access and offline use
+            <p className="text-xs text-white/80 mb-3 leading-relaxed">
+              Catch vocab in the wild! Add to your home screen for quick access and offline use.
             </p>
             
             <div className="flex space-x-2">
               <button
                 onClick={handleInstall}
                 disabled={isInstalling}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-1"
+                className="flex-1 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 border border-white/30 backdrop-blur-sm"
               >
                 {isInstalling ? (
                   <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                     <span>Installing...</span>
                   </>
                 ) : (
                   <>
-                    <Download className="h-3 w-3" />
+                    <Download className="h-4 w-4" />
                     <span>Install</span>
                   </>
                 )}
@@ -95,9 +95,9 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onClose }) => {
               
               <button
                 onClick={handleClose}
-                className="text-zinc-400 hover:text-white p-2 rounded-lg transition-colors duration-200"
+                className="text-white/70 hover:text-white p-2 rounded-xl transition-colors duration-200 hover:bg-white/10"
               >
-                <X className="h-3 w-3" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>

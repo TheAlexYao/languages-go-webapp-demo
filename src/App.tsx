@@ -43,6 +43,7 @@ function App() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [collectingCardId, setCollectingCardId] = useState<string | null>(null);
   const [showCollectSuccess, setShowCollectSuccess] = useState<{ cardId: string; word: string } | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('es'); // Default to Spanish
   
   // Mock community data
   const communityData = getMockCommunityData();
@@ -376,7 +377,12 @@ function App() {
       style={{ height: isMobile ? viewportHeight : '100vh' }}
     >
       {/* Header */}
-      <Header stats={currentStats} currentTab={currentTab} />
+      <Header 
+        stats={currentStats} 
+        currentTab={currentTab}
+        selectedLanguage={selectedLanguage}
+        onLanguageChange={setSelectedLanguage}
+      />
 
       {/* Main Content */}
       <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-20' : ''}`}>
@@ -384,7 +390,8 @@ function App() {
           <div className={`h-full ${isMobile ? 'p-4' : 'p-6'}`}>
             <PhotoCapture
               onCardsGenerated={handleCardsGenerated}
-              onProcessingStateChange={setIsProcessingPhoto}
+              isEnabled={authState === 'authenticated'}
+              selectedLanguage={selectedLanguage}
             />
           </div>
         )}

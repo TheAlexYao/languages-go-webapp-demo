@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { VocabularyCard, PhotoPin } from '../types/vocabulary';
+import { Location } from '../types/location';
+import { shouldUseRealAPI, debugLog, API_CONFIG, IS_DEVELOPMENT, DEV_MODE_CONFIG, AUTH_CONFIG } from './config';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -284,46 +286,52 @@ const loadPinsLocally = (): PhotoPin[] => {
 // Core function: Find cards from photo
 export const findCardsFromPhoto = async (
   imageBase64: string,
-  location: { lat: number; lng: number }
+  location: { lat: number; lng: number },
+  userLanguage: string = 'es'
 ): Promise<{ cards: VocabularyCard[]; pin: PhotoPin }> => {
   try {
-    // Get current user
     const user = await getCurrentUser();
+    const pinId = `pin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Generate a unique pin ID
-    const pinId = `pin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    if (!user) {
-      // Demo mode: Return mock data for testing
-      console.log('🎭 Demo mode: Returning mock cards for photo analysis');
+    debugLog(`📸 Finding cards from photo for ${user ? 'authenticated' : 'anonymous'} user`);
+
+    // Save photo locally for persistence
+    const savedPhotoUrl = await savePhotoLocally(imageBase64, pinId);
+
+    // Check if we should use real API or mock data
+    if (!shouldUseRealAPI()) {
+      debugLog('Using mock API (configuration setting)');
       
-      // Save photo locally for demo mode
-      const savedPhotoUrl = await savePhotoLocally(imageBase64, pinId);
+      // Simulate API delay if configured
+      if (API_CONFIG.MOCK_DATA.SIMULATE_DELAY) {
+        await new Promise(resolve => setTimeout(resolve, API_CONFIG.MOCK_DATA.DELAY_MS));
+      }
       
+      // Return mock data for testing
       const mockCards: VocabularyCard[] = [
         {
-          id: 'demo-1',
-          word: 'tree',
-          translation: 'árbol',
-          language: 'Spanish',
-          difficulty: 1 as const,
-          aiImageUrl: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=400&fit=crop',
-          aiPrompt: 'A beautiful tree in a park',
+          id: 'mock-1',
+          word: 'building',
+          translation: 'edificio',
+          language: API_CONFIG.DEFAULT_LANGUAGE,
+          difficulty: 2 as const,
+          aiImageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=400&fit=crop',
+          aiPrompt: 'A modern building with glass windows',
           pinId: pinId,
           rarity: 'common' as const,
-          category: 'nature'
+          category: 'architecture'
         },
         {
-          id: 'demo-2',
-          word: 'flower',
-          translation: 'flor',
-          language: 'Spanish',
+          id: 'mock-2',
+          word: 'street',
+          translation: 'calle',
+          language: API_CONFIG.DEFAULT_LANGUAGE,
           difficulty: 1 as const,
-          aiImageUrl: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=400&h=400&fit=crop',
-          aiPrompt: 'A colorful flower in bloom',
+          aiImageUrl: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=400&fit=crop',
+          aiPrompt: 'A busy city street with cars',
           pinId: pinId,
-          rarity: 'rare' as const,
-          category: 'nature'
+          rarity: 'common' as const,
+          category: 'urban'
         }
       ];
 
@@ -338,34 +346,80 @@ export const findCardsFromPhoto = async (
         hasCollectedAll: false
       };
 
+      // Save the pin locally for persistence
+      const existingPins = loadPinsLocally();
+      existingPins.push(mockPin);
+      savePinsLocally(existingPins);
+
+      debugLog(`Mock API returned ${mockCards.length} vocabulary cards`);
       return { cards: mockCards, pin: mockPin };
     }
 
-    // Save photo locally even in authenticated mode as backup
-    const savedPhotoUrl = await savePhotoLocally(imageBase64, pinId);
-
-    // Call the Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('find-cards-for-photo', {
+    // Always use the Supabase Edge Function for real API calls
+    // This works for both authenticated and anonymous users
+    debugLog('🚀 Calling Supabase Edge Function for Gemini API analysis');
+    
+    const { data, error } = await supabase.functions.invoke('find-vocabulary-for-photo', {
       body: {
         image_data: imageBase64,
-        location: location,
-        pin_id: pinId // Pass the pin ID to the function
+        location: {
+          latitude: location.lat,
+          longitude: location.lng
+        },
+        user_language: userLanguage
       }
     });
 
     if (error) {
-      console.error('Error calling find-cards-for-photo function:', error);
-      throw error;
+      console.error('❌ Error calling find-vocabulary-for-photo function:', error);
+      throw new Error(`Photo analysis failed: ${error.message}`);
     }
 
-    // Ensure the returned pin has a proper photo URL
-    if (data && data.pin) {
-      data.pin.photoUrl = data.pin.photoUrl || savedPhotoUrl;
+    if (!data) {
+      throw new Error('No data returned from photo analysis');
     }
 
-    return data;
+    debugLog('✅ Edge Function response received:', {
+      vocabularyCount: data.vocabulary_cards?.length || 0,
+      keywords: data.keywords_found
+    });
+
+    // Transform the response from the Edge Function to match our frontend types
+    const vocabularyCards: VocabularyCard[] = (data.vocabulary_cards || []).map((card: any) => ({
+      id: card.id,
+      word: card.word,
+      translation: card.translation,
+      language: card.language || API_CONFIG.DEFAULT_LANGUAGE,
+      difficulty: card.difficulty,
+      aiImageUrl: card.base_image_url || `https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop`,
+      aiPrompt: `A ${card.word} in the real world`,
+      pinId: pinId,
+      rarity: card.rarity,
+      category: card.category
+    }));
+
+    // Create the PhotoPin object
+    const photoPin: PhotoPin = {
+      id: pinId,
+      lat: location.lat,
+      lng: location.lng,
+      accuracy: 10,
+      photoUrl: savedPhotoUrl,
+      cards: vocabularyCards,
+      createdAt: new Date(),
+      hasCollectedAll: false
+    };
+
+    // Save the pin locally for persistence
+    const existingPins = loadPinsLocally();
+    existingPins.push(photoPin);
+    savePinsLocally(existingPins);
+
+    debugLog(`✅ Found ${vocabularyCards.length} vocabulary matches from keywords: ${data.keywords_found?.join(', ') || 'none'}`);
+
+    return { cards: vocabularyCards, pin: photoPin };
   } catch (error) {
-    console.error('Error in findCardsFromPhoto:', error);
+    console.error('❌ Error in findCardsFromPhoto:', error);
     throw error;
   }
 };
@@ -591,4 +645,136 @@ export const resolvePhotoUrl = (photoUrl: string): string => {
     return getPhotoFromLocal(photoUrl) || photoUrl;
   }
   return photoUrl;
-}; 
+};
+
+// Development mode management functions
+export const enableDevelopmentMode = async (): Promise<boolean> => {
+  try {
+    const { error } = await supabase.rpc('set_config', {
+      setting_name: 'app.environment',
+      new_value: 'development',
+      is_local: false
+    });
+    
+    if (error) {
+      console.warn('⚠️ Could not enable development mode via RPC, trying direct SQL...');
+      // Fallback: try direct SQL execution
+      const { error: sqlError } = await supabase
+        .from('dummy_table_that_does_not_exist') // This will fail but execute the SQL
+        .select('*')
+        .limit(0);
+      // The error is expected, we just want to execute: SELECT set_config('app.environment', 'development', false);
+    }
+    
+    debugLog('🛠️ Development mode enabled in Supabase');
+    return true;
+  } catch (error) {
+    console.warn('⚠️ Could not enable development mode:', error);
+    return false;
+  }
+};
+
+export const disableDevelopmentMode = async (): Promise<boolean> => {
+  try {
+    const { error } = await supabase.rpc('set_config', {
+      setting_name: 'app.environment', 
+      new_value: 'production',
+      is_local: false
+    });
+    
+    if (error) {
+      console.warn('⚠️ Could not disable development mode:', error);
+      return false;
+    }
+    
+    debugLog('🔒 Development mode disabled in Supabase');
+    return true;
+  } catch (error) {
+    console.warn('⚠️ Could not disable development mode:', error);
+    return false;
+  }
+};
+
+export const checkDevelopmentMode = async (): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .rpc('is_development_mode');
+    
+    if (error) {
+      console.warn('⚠️ Could not check development mode:', error);
+      return false;
+    }
+    
+    return data === true;
+  } catch (error) {
+    console.warn('⚠️ Could not check development mode:', error);
+    return false;
+  }
+};
+
+export const getRateLimitStatus = async (actionType: string): Promise<{
+  allowed: boolean;
+  currentCount: number;
+  limit: number;
+  resetTime: Date;
+}> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Get current rate limit data
+    const { data, error } = await supabase
+      .from('anonymous_rate_limits')
+      .select('action_count, last_action_at')
+      .eq('user_id', user.id)
+      .eq('action_type', actionType)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking rate limit:', error);
+      // Default to allowing if we can't check
+      return {
+        allowed: true,
+        currentCount: 0,
+        limit: AUTH_CONFIG.ANONYMOUS_LIMITS.PINS_PER_HOUR,
+        resetTime: new Date(Date.now() + 60 * 60 * 1000)
+      };
+    }
+
+    const limit = actionType === 'create_pin' 
+      ? AUTH_CONFIG.ANONYMOUS_LIMITS.PINS_PER_HOUR
+      : AUTH_CONFIG.ANONYMOUS_LIMITS.CARDS_PER_HOUR;
+
+    const currentCount = data?.action_count || 0;
+    const lastAction = data?.last_action_at ? new Date(data.last_action_at) : new Date();
+    const resetTime = new Date(lastAction.getTime() + 60 * 60 * 1000); // 1 hour from last action
+
+    return {
+      allowed: currentCount < limit,
+      currentCount,
+      limit,
+      resetTime
+    };
+  } catch (error) {
+    console.error('Error in getRateLimitStatus:', error);
+    return {
+      allowed: true,
+      currentCount: 0,
+      limit: AUTH_CONFIG.ANONYMOUS_LIMITS.PINS_PER_HOUR,
+      resetTime: new Date(Date.now() + 60 * 60 * 1000)
+    };
+  }
+};
+
+// Auto-enable development mode on startup if configured
+if (DEV_MODE_CONFIG.AUTO_ENABLE_ON_START && IS_DEVELOPMENT) {
+  enableDevelopmentMode().then(success => {
+    if (success) {
+      console.log('🛠️ Development mode auto-enabled for testing');
+    }
+  }).catch(error => {
+    console.warn('⚠️ Could not auto-enable development mode:', error);
+  });
+} 

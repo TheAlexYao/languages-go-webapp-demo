@@ -13,13 +13,27 @@ const sizeClasses = {
   xl: 'w-16 h-16',
 };
 
+const textSizeClasses = {
+  sm: 'text-sm',
+  md: 'text-base',
+  lg: 'text-lg',
+  xl: 'text-xl',
+};
+
+const subtextSizeClasses = {
+  sm: 'text-xs',
+  md: 'text-xs',
+  lg: 'text-sm',
+  xl: 'text-sm',
+};
+
 export const Logo: React.FC<LogoProps> = ({ 
   size = 'md', 
   className = '', 
   showText = false 
 }) => {
   return (
-    <div className={`flex items-center space-x-2 ${className}`}>
+    <div className={`flex items-center space-x-3 ${className}`}>
       <img
         src="/icons/map-kun.svg"
         alt="Languages Go! Logo"
@@ -27,11 +41,11 @@ export const Logo: React.FC<LogoProps> = ({
       />
       {showText && (
         <div>
-          <h1 className="font-bold text-lg leading-tight">
+          <h1 className={`font-bold leading-tight ${textSizeClasses[size]}`}>
             Languages Go!
           </h1>
-          <p className="text-blue-100 text-xs">
-            Catch vocabulary in the wild
+          <p className={`text-white/80 leading-tight ${subtextSizeClasses[size]}`}>
+            Catch vocab in the wild
           </p>
         </div>
       )}

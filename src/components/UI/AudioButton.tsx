@@ -65,15 +65,15 @@ export const AudioButton: React.FC<AudioButtonProps> = ({
   };
 
   const getVariantClasses = () => {
-    const baseClasses = 'relative overflow-hidden transition-all duration-200 transform';
+    const baseClasses = 'relative overflow-hidden transition-all duration-200';
     
     switch (variant) {
       case 'primary':
-        return `${baseClasses} bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-105 rounded-xl border-2 border-blue-400/30`;
+        return `${baseClasses} bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 rounded-xl border-2 border-blue-400/30`;
       case 'secondary':
-        return `${baseClasses} bg-white hover:bg-gray-50 text-blue-600 border-2 border-blue-200 hover:border-blue-300 shadow-md hover:shadow-lg rounded-xl`;
+        return `${baseClasses} bg-white hover:bg-gray-50 text-blue-600 border-2 border-blue-200 hover:border-blue-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 rounded-xl`;
       case 'minimal':
-        return `${baseClasses} bg-gray-100/50 hover:bg-gray-200/70 text-gray-600 hover:text-gray-800 rounded-lg border border-gray-200/50`;
+        return `${baseClasses} bg-gray-100/50 hover:bg-gray-200/70 text-gray-600 hover:text-gray-800 hover:scale-105 active:scale-95 rounded-lg border border-gray-200/50`;
     }
   };
 
@@ -116,10 +116,10 @@ export const AudioButton: React.FC<AudioButtonProps> = ({
         ${getSizeClasses()}
         ${getVariantClasses()}
         ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        ${isActive ? 'ring-2 ring-blue-300 ring-opacity-50' : ''}
+        ${isActive ? 'ring-2 ring-blue-300 ring-opacity-50 scale-105' : 'scale-100'}
         ${className}
         flex items-center justify-center space-x-1 font-medium
-        disabled:transform-none disabled:hover:shadow-none
+        disabled:transform-none disabled:hover:shadow-none disabled:scale-100
       `}
       title={`Listen to pronunciation in ${language}`}
     >

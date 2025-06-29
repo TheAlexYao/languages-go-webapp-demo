@@ -5,6 +5,8 @@ import { MapPin, Users, Target } from 'lucide-react';
 import { PhotoPin } from '../../types/vocabulary';
 import { Location } from '../../types/location';
 import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { resolvePhotoUrl } from '../../services/supabase';
+import { VocabularyCard } from '../../types/vocabulary';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -194,7 +196,7 @@ export const GameMap: React.FC<GameMapProps> = ({
               <Popup>
                 <div className="min-w-[200px]">
                   <img
-                    src={pin.photoUrl}
+                    src={resolvePhotoUrl(pin.photoUrl)}
                     alt="Photo location"
                     className="w-full h-24 object-cover rounded-lg mb-2"
                   />

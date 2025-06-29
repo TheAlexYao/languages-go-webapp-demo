@@ -12,24 +12,30 @@ import { Header } from './components/Layout/Header';
 import { TabNavigation } from './components/Layout/TabNavigation';
 import { PoweredByBolt } from './components/Layout/PoweredByBolt';
 import { InstallPrompt } from './components/InstallPrompt';
+import { AuthScreen } from './components/Auth/AuthScreen';
 import { useCardCollection } from './hooks/useCardCollection';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { getMockCommunityData } from './services/mockData';
-import { signInAnonymously, supabase } from './services/supabase';
-import { VocabularyCard, PhotoPin } from './types/vocabulary';
+import { signInAnonymously, supabase, savePinsLocally, loadPinsLocally, resolvePhotoUrl } from './services/supabase';
+import { VocabularyCard, PhotoPin, CollectionStats } from './types/vocabulary';
 import { Player } from './types/player';
 
 type Tab = 'camera' | 'map' | 'collection' | 'community';
 
 function App() {
+  console.log('🚀 App component rendering at:', new Date().toISOString());
+  
   const { isMobile, viewportHeight, isPWA } = useMobileDetection();
   const { location, getCurrentLocation, isLoading: locationLoading, error: locationError } = useGeolocation();
-  const { collectedCards, stats, isLoading: collectionLoading, collectCard } = useCardCollection();
   
   const [currentTab, setCurrentTab] = useState<Tab>('camera');
   const [permissionState, setPermissionState] = useState<'loading' | 'granted' | 'denied'>('loading');
-  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'error'>('loading');
+  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated' | 'error'>('loading');
+  
+  console.log('🔍 Current auth state in render:', authState);
+  
+  const { collectedCards, stats: hookStats, isLoading: collectionLoading, collectCard } = useCardCollection(authState === 'authenticated');
   const [pins, setPins] = useState<PhotoPin[]>([]);
   const [selectedCard, setSelectedCard] = useState<VocabularyCard | null>(null);
   const [selectedPin, setSelectedPin] = useState<PhotoPin | null>(null);
@@ -41,9 +47,48 @@ function App() {
   // Mock community data
   const communityData = getMockCommunityData();
 
+  // Calculate comprehensive stats based on actual app state
+  const calculateAppStats = (): CollectionStats => {
+    // Get all cards from all pins
+    const allCards = pins.flatMap(pin => pin.cards);
+    const collectedCardsCount = collectedCards.length;
+    
+    // Calculate unique words from collected cards
+    const uniqueWords = new Set(collectedCards.map(c => c.word.toLowerCase())).size;
+    
+    // Calculate languages from collected cards
+    const languages = Array.from(new Set(collectedCards.map(c => c.language)));
+    
+    // Calculate total XP based on collected cards
+    const totalXp = collectedCards.reduce((xp, card) => {
+      const baseXp = card.difficulty * 10;
+      const rarityBonus = card.rarity === 'epic' ? 50 : card.rarity === 'rare' ? 20 : 0;
+      return xp + baseXp + rarityBonus;
+    }, 0);
+    
+    // Calculate level based on XP
+    const level = Math.floor(totalXp / 100) + 1;
+    
+    // For demo mode, use pins count as "discoveries", for authenticated use hook's streak
+    const discoveries = authState === 'authenticated' ? hookStats.streak : pins.length;
+    
+    return {
+      totalCards: collectedCardsCount,
+      uniqueWords,
+      languages,
+      streak: discoveries,
+      level,
+      xp: totalXp,
+      achievements: hookStats.achievements
+    };
+  };
+
+  // Get current stats
+  const currentStats = calculateAppStats();
+
   // Initialize authentication on mount
   useEffect(() => {
-    const initializeAuth = async () => {
+    const checkExistingAuth = async () => {
       try {
         // Check if user is already authenticated
         const { data: { session } } = await supabase.auth.getSession();
@@ -52,27 +97,26 @@ function App() {
           console.log('✅ User already authenticated:', session.user.id);
           setAuthState('authenticated');
         } else {
-          // Sign in anonymously
-          console.log('🔑 Signing in anonymously...');
-          const authData = await signInAnonymously();
-          console.log('✅ Anonymous authentication successful:', authData.user?.id);
-          setAuthState('authenticated');
+          // No existing session, show auth screen
+          setAuthState('unauthenticated');
         }
       } catch (error) {
-        console.error('❌ Authentication error:', error);
-        setAuthState('error');
+        console.error('❌ Error checking authentication:', error);
+        setAuthState('unauthenticated');
       }
     };
 
-    initializeAuth();
+    checkExistingAuth();
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔄 Auth state changed:', event, session?.user?.id);
       if (session) {
+        console.log('✅ Setting auth state to authenticated');
         setAuthState('authenticated');
       } else {
-        setAuthState('loading');
+        console.log('🔓 Setting auth state to unauthenticated');
+        setAuthState('unauthenticated');
       }
     });
 
@@ -92,6 +136,31 @@ function App() {
     
     checkPermissions();
   }, []);
+
+  // Load pins from local storage on app initialization
+  useEffect(() => {
+    const loadStoredPins = () => {
+      try {
+        const storedPins = loadPinsLocally();
+        if (storedPins.length > 0) {
+          console.log('📍 Loaded pins from local storage:', storedPins.length);
+          setPins(storedPins);
+        }
+      } catch (error) {
+        console.error('Failed to load pins from local storage:', error);
+      }
+    };
+
+    loadStoredPins();
+  }, []);
+
+  // Save pins to local storage whenever pins change
+  useEffect(() => {
+    if (pins.length > 0) {
+      savePinsLocally(pins);
+      console.log('💾 Saved pins to local storage:', pins.length);
+    }
+  }, [pins]);
 
   const handlePermissionGranted = () => {
     setPermissionState('granted');
@@ -206,13 +275,46 @@ function App() {
     setSelectedPin(null);
   };
 
+  const handleAuthSuccess = () => {
+    setAuthState('authenticated');
+  };
+
+  const handleAuthError = (error: Error) => {
+    console.error('❌ Authentication failed:', error);
+    setAuthState('error');
+  };
+
+  // Debug: Log current state
+  console.log('🐛 App render state:', { authState, permissionState, collectionLoading });
+
+  // Debug render state
+  console.log('🎨 App render state:', { 
+    authState, 
+    permissionState, 
+    collectionLoading,
+    collectedCardsCount: collectedCards.length
+  });
+
   // Show loading screen until authentication and permissions are resolved
   if (authState === 'loading' || permissionState === 'loading' || collectionLoading) {
+    console.log('⏳ Loading state:', { authState, permissionState, collectionLoading });
     return (
       <LoadingScreen
         onPermissionGranted={handlePermissionGranted}
         onPermissionDenied={handlePermissionDenied}
         isPWA={isPWA}
+      />
+    );
+  }
+
+  // Show authentication screen for unauthenticated users
+  if (authState === 'unauthenticated') {
+    console.log('🔓 Showing authentication screen');
+    return (
+      <AuthScreen
+        onAuthSuccess={handleAuthSuccess}
+        onAuthError={handleAuthError}
+        isMobile={isMobile}
       />
     );
   }
@@ -274,7 +376,7 @@ function App() {
       style={{ height: isMobile ? viewportHeight : '100vh' }}
     >
       {/* Header */}
-      <Header stats={stats} currentTab={currentTab} />
+      <Header stats={currentStats} currentTab={currentTab} />
 
       {/* Main Content */}
       <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-20' : ''}`}>
@@ -383,7 +485,7 @@ function App() {
               </div>
               
               <img
-                src={selectedPin.photoUrl}
+                src={resolvePhotoUrl(selectedPin.photoUrl)}
                 alt="Location photo"
                 className={`w-full ${isMobile ? 'h-32' : 'h-40'} object-cover rounded-2xl mb-6 shadow-lg`}
               />

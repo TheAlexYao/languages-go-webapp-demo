@@ -58,7 +58,7 @@ const achievements: Achievement[] = [
   }
 ];
 
-export const useCardCollection = () => {
+export const useCardCollection = (isAuthenticated: boolean = false) => {
   const [collectedCards, setCollectedCards] = useState<VocabularyCard[]>([]);
   const [stats, setStats] = useState<CollectionStats>(defaultStats);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,63 +67,7 @@ export const useCardCollection = () => {
     return Math.floor(xp / 100) + 1;
   };
 
-  const checkAchievements = useCallback((newStats: CollectionStats, cards: VocabularyCard[]): Achievement[] => {
-    const newAchievements: Achievement[] = [];
-    
-    achievements.forEach(achievement => {
-      const isAlreadyUnlocked = newStats.achievements.some(a => a.id === achievement.id);
-      if (isAlreadyUnlocked) return;
-      
-      let shouldUnlock = false;
-      let progress = 0;
-      
-      switch (achievement.id) {
-        case 'first-card':
-          shouldUnlock = cards.length >= 1;
-          break;
-        case 'collector':
-          progress = cards.length;
-          shouldUnlock = cards.length >= 25;
-          break;
-        case 'polyglot':
-          progress = newStats.languages.length;
-          shouldUnlock = newStats.languages.length >= 3;
-          break;
-        case 'streak-master':
-          progress = newStats.streak;
-          shouldUnlock = newStats.streak >= 7;
-          break;
-        case 'legend':
-          progress = cards.length;
-          shouldUnlock = cards.length >= 50;
-          break;
-        case 'explorer':
-          // This would need pin data, simplified for now
-          progress = Math.min(cards.length / 2, 10);
-          shouldUnlock = cards.length >= 20;
-          break;
-      }
-      
-      if (shouldUnlock) {
-        newAchievements.push({
-          ...achievement,
-          unlockedAt: new Date(),
-          progress: achievement.maxProgress
-        });
-      } else if (achievement.maxProgress && progress > 0) {
-        // Update progress for incomplete achievements
-        const existingIndex = newStats.achievements.findIndex(a => a.id === achievement.id);
-        if (existingIndex === -1) {
-          newStats.achievements.push({
-            ...achievement,
-            progress
-          });
-        }
-      }
-    });
-    
-    return newAchievements;
-  }, []);
+
 
   const updateStatsFromCards = useCallback((cards: VocabularyCard[]) => {
     setStats(currentStats => {
@@ -148,19 +92,76 @@ export const useCardCollection = () => {
         level: newLevel
       };
       
-      // Check for new achievements
-      const newAchievements = checkAchievements(newStats, cards);
+      // Check for new achievements inline to avoid dependency issues
+      const newAchievements: Achievement[] = [];
+      
+      achievements.forEach(achievement => {
+        const isAlreadyUnlocked = currentStats.achievements.some(a => a.id === achievement.id);
+        if (isAlreadyUnlocked) return;
+        
+        let shouldUnlock = false;
+        let progress = 0;
+        
+        switch (achievement.id) {
+          case 'first-card':
+            shouldUnlock = cards.length >= 1;
+            break;
+          case 'collector':
+            progress = cards.length;
+            shouldUnlock = cards.length >= 25;
+            break;
+          case 'polyglot':
+            progress = newStats.languages.length;
+            shouldUnlock = newStats.languages.length >= 3;
+            break;
+          case 'streak-master':
+            progress = newStats.streak;
+            shouldUnlock = newStats.streak >= 7;
+            break;
+          case 'legend':
+            progress = cards.length;
+            shouldUnlock = cards.length >= 50;
+            break;
+          case 'explorer':
+            progress = Math.min(cards.length / 2, 10);
+            shouldUnlock = cards.length >= 20;
+            break;
+        }
+        
+        if (shouldUnlock) {
+          newAchievements.push({
+            ...achievement,
+            unlockedAt: new Date(),
+            progress: achievement.maxProgress
+          });
+        } else if (achievement.maxProgress && progress > 0) {
+          const existingIndex = newStats.achievements.findIndex(a => a.id === achievement.id);
+          if (existingIndex === -1) {
+            newStats.achievements.push({
+              ...achievement,
+              progress
+            });
+          }
+        }
+      });
+      
       if (newAchievements.length > 0) {
         newStats.achievements = [...currentStats.achievements, ...newAchievements];
       }
       
-            return newStats;
+      return newStats;
     });
-  }, [checkAchievements]);
+  }, []); // Remove the dependency to prevent infinite loops
 
   // Load data from Supabase and localStorage (for stats)
   useEffect(() => {
     const loadData = async () => {
+      // Don't load data if user is not authenticated
+      if (!isAuthenticated) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         // Load collected cards from Supabase
         const supabaseCards = await getUserCollectedCards();
@@ -186,7 +187,7 @@ export const useCardCollection = () => {
     };
     
     loadData();
-  }, [updateStatsFromCards]);
+  }, [isAuthenticated, updateStatsFromCards]);
 
   // Save stats to localStorage whenever they change
   useEffect(() => {

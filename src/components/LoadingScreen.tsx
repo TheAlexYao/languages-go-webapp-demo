@@ -235,9 +235,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <div className="relative bg-gradient-to-br from-zinc-800 via-zinc-700 to-zinc-900 rounded-full w-full h-full flex items-center justify-center shadow-2xl border border-zinc-600/30">
             <div ref={logoRef} className="text-white">
               <img 
-                src="/white_circle_360x360.png" 
-                alt="CameraApp Logo" 
-                className="h-32 w-32 drop-shadow-lg" 
+                src="/icons/map-kun.svg" 
+                alt="Languages Go Logo" 
+                className="h-20 w-20 drop-shadow-lg" 
               />
             </div>
           </div>
@@ -245,7 +245,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
         {/* Title */}
         <h1 ref={titleRef} className="text-4xl font-bold text-white mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-sans">
-          Web Camera Kit
+          Languages Go!
         </h1>
 
         {/* Subtitle */}
@@ -254,9 +254,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             ? <p>Checking camera access...</p>
             : (
                 <>
-                  <p>A lightweight, mobile-optimized camera boilerplate.</p>
-                  <p>Perfect for real-world AI and CV projects</p>
-                  <p>—right in the browser</p>
+                  <p>Catch vocabulary in the wild</p>
+                  <p>A Pokémon Go style language adventure</p>
+                  <p>—right in your browser</p>
                 </>
               )
           }

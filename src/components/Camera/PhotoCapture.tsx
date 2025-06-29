@@ -3,7 +3,7 @@ import Webcam from 'react-webcam';
 import { Camera, MapPin, Loader2, Crosshair, AlertCircle, RefreshCw } from 'lucide-react';
 import { useMobileDetection } from '../../hooks/useMobileDetection';
 import { useGeolocation } from '../../hooks/useGeolocation';
-import { analyzePhotoMock, generateCardImageMock, createVocabularyCardMock } from '../../services/ai/mockAI';
+import { findCardsFromPhoto } from '../../services/supabase';
 import { VocabularyCard, PhotoPin } from '../../types/vocabulary';
 
 interface PhotoCaptureProps {
@@ -47,47 +47,24 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       const imageSrc = webcamRef.current.getScreenshot();
       if (!imageSrc) throw new Error('Failed to capture photo');
 
-      // Step 3: Analyze photo with AI
+      // Step 3: Analyze photo and find cards using Supabase Edge Function
       setProcessingStep('Analyzing photo...');
-      const vocabularyData = await analyzePhotoMock(imageSrc);
-
-      // Step 4: Generate cards
-      setProcessingStep('Generating vocabulary cards...');
-      const pinId = `pin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const cards: VocabularyCard[] = [];
-
-      for (const vocabString of vocabularyData) {
-        const [word, translation, category, language] = vocabString.split('|');
-        
-        setProcessingStep(`Creating artwork for "${word}"...`);
-        const imageUrl = await generateCardImageMock(word, category);
-        
-        const card = createVocabularyCardMock(
-          word,
-          translation,
-          category,
-          language,
-          pinId,
-          imageUrl
-        );
-        
-        cards.push(card);
-      }
-
-      // Step 5: Create pin
-      const pin: PhotoPin = {
-        id: pinId,
+      const imageBase64 = imageSrc.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+      
+      setProcessingStep('Finding vocabulary cards...');
+      const { cards, pin } = await findCardsFromPhoto(imageBase64, {
         lat: currentLocation.lat,
-        lng: currentLocation.lng,
-        accuracy: currentLocation.accuracy || 0,
-        photoUrl: imageSrc,
-        cards,
-        createdAt: new Date(),
+        lng: currentLocation.lng
+      });
+
+      // Add hasCollectedAll property to pin
+      const enhancedPin: PhotoPin = {
+        ...pin,
         hasCollectedAll: false
       };
 
       setProcessingStep('Complete!');
-      onCardsGenerated(cards, pin);
+      onCardsGenerated(cards, enhancedPin);
 
     } catch (error) {
       console.error('Photo capture failed:', error);

@@ -422,6 +422,7 @@ function App() {
           <div className={`h-full overflow-y-auto ${isMobile ? 'p-4' : 'p-6'}`}>
             <CardGrid
               cards={collectedCards}
+              stats={authState === 'authenticated' ? hookStats : currentStats}
               onCardClick={setSelectedCard}
             />
           </div>

@@ -67,8 +67,6 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
     return Math.floor(xp / 100) + 1;
   };
 
-
-
   const updateStatsFromCards = useCallback((cards: VocabularyCard[]) => {
     setStats(currentStats => {
       const uniqueWords = new Set(cards.map(c => c.word.toLowerCase())).size;
@@ -83,13 +81,75 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
       
       const newLevel = calculateLevel(totalXp);
       
+      // Calculate streak - consecutive days with at least one card collected
+      const calculateStreak = (cards: VocabularyCard[]): number => {
+        if (cards.length === 0) return 0;
+        
+        // Group cards by date
+        const cardsByDate = new Map<string, VocabularyCard[]>();
+        cards.forEach(card => {
+          if (card.collectedAt) {
+            const dateKey = new Date(card.collectedAt).toDateString();
+            if (!cardsByDate.has(dateKey)) {
+              cardsByDate.set(dateKey, []);
+            }
+            cardsByDate.get(dateKey)!.push(card);
+          }
+        });
+        
+        // Sort dates in descending order (most recent first)
+        const sortedDates = Array.from(cardsByDate.keys())
+          .map(dateStr => new Date(dateStr))
+          .sort((a, b) => b.getTime() - a.getTime());
+        
+        if (sortedDates.length === 0) return 0;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        // Check if user collected cards today or yesterday (to maintain streak)
+        const mostRecentDate = sortedDates[0];
+        mostRecentDate.setHours(0, 0, 0, 0);
+        
+        if (mostRecentDate.getTime() < yesterday.getTime()) {
+          // No activity today or yesterday, streak is broken
+          return 0;
+        }
+        
+        // Count consecutive days
+        let streak = 0;
+        let currentDate = new Date(today);
+        
+        for (let i = 0; i < sortedDates.length; i++) {
+          const checkDate = new Date(sortedDates[i]);
+          checkDate.setHours(0, 0, 0, 0);
+          currentDate.setHours(0, 0, 0, 0);
+          
+          if (checkDate.getTime() === currentDate.getTime()) {
+            streak++;
+            currentDate.setDate(currentDate.getDate() - 1);
+          } else if (checkDate.getTime() < currentDate.getTime()) {
+            // Gap in streak, stop counting
+            break;
+          }
+        }
+        
+        return streak;
+      };
+      
+      const newStreak = calculateStreak(cards);
+      
       const newStats: CollectionStats = {
         ...currentStats,
         totalCards: cards.length,
         uniqueWords,
         languages,
         xp: totalXp,
-        level: newLevel
+        level: newLevel,
+        streak: newStreak
       };
       
       // Check for new achievements inline to avoid dependency issues

@@ -336,6 +336,28 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
     localStorage.removeItem(DEMO_CARDS_KEY);
   }, []);
 
+  const addCardsToCollection = useCallback(async (newCards: VocabularyCard[]) => {
+    const cardsWithTimestamp = newCards.map(card => ({
+      ...card,
+      collectedAt: new Date()
+    }));
+
+    const newCollection = [...collectedCards, ...cardsWithTimestamp];
+    setCollectedCards(newCollection);
+    updateStatsFromCards(newCollection);
+
+    if (isAuthenticated) {
+      try {
+        await Promise.all(cardsWithTimestamp.map(card => supabaseCollectCard(card)));
+      } catch (error) {
+        console.error('Failed to save cards to Supabase:', error);
+        // TODO: Implement offline queueing
+      }
+    } else {
+      saveDemoCards(newCollection);
+    }
+  }, [collectedCards, isAuthenticated, updateStatsFromCards, saveDemoCards]);
+
   return {
     collectedCards,
     stats,
@@ -343,6 +365,7 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
     collectCard,
     getCardsByLanguage,
     getCardsByRarity,
-    clearCollection
+    clearCollection,
+    addCardsToCollection
   };
 };

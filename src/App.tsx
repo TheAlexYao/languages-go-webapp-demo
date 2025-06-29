@@ -418,6 +418,10 @@ function App() {
               onCardsGenerated={handleCardsGenerated}
               isEnabled={authState === 'authenticated'}
               selectedLanguage={selectedLanguage}
+              location={location}
+              locationLoading={locationLoading}
+              locationError={locationError}
+              onRetryLocation={() => getCurrentLocation()}
             />
           </div>
         )}

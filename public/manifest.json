@@ -2,8 +2,8 @@
   "name": "Languages Go!",
   "short_name": "Languages Go",
   "description": "Catch vocabulary in the wild",
-  "start_url": "/",
-  "display": "standalone",
+  "start_url": ".",
+  "display": "fullscreen",
   "theme_color": "#2563eb",
   "background_color": "#ffffff",
   "icons": [
@@ -20,7 +20,8 @@
     {
       "src": "favicon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }

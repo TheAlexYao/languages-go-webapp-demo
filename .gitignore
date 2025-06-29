@@ -23,3 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Cursor MCP configuration (contains access tokens)
+.cursor
+
+# .env
+.env

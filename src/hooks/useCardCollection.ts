@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { VocabularyCard, CollectionStats, Achievement } from '../types/vocabulary';
+import { getUserCollectedCards, collectCard as supabaseCollectCard } from '../services/supabase';
 
-const STORAGE_KEY = 'languages-go-collection';
 const STATS_KEY = 'languages-go-stats';
 
 const defaultStats: CollectionStats = {
@@ -62,36 +62,6 @@ export const useCardCollection = () => {
   const [collectedCards, setCollectedCards] = useState<VocabularyCard[]>([]);
   const [stats, setStats] = useState<CollectionStats>(defaultStats);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Load data from localStorage
-  useEffect(() => {
-    try {
-      const savedCards = localStorage.getItem(STORAGE_KEY);
-      const savedStats = localStorage.getItem(STATS_KEY);
-      
-      if (savedCards) {
-        const cards = JSON.parse(savedCards);
-        setCollectedCards(cards);
-      }
-      
-      if (savedStats) {
-        const parsedStats = JSON.parse(savedStats);
-        setStats({ ...defaultStats, ...parsedStats });
-      }
-    } catch (error) {
-      console.error('Failed to load collection data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Save to localStorage whenever data changes
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(collectedCards));
-      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
-    }
-  }, [collectedCards, stats, isLoading]);
 
   const calculateLevel = (xp: number): number => {
     return Math.floor(xp / 100) + 1;
@@ -155,44 +125,101 @@ export const useCardCollection = () => {
     return newAchievements;
   }, []);
 
-  const collectCard = useCallback((card: VocabularyCard) => {
-    const collectedCard = {
-      ...card,
-      collectedAt: new Date()
-    };
-    
-    setCollectedCards(prev => {
-      const newCards = [collectedCard, ...prev];
+  const updateStatsFromCards = useCallback((cards: VocabularyCard[]) => {
+    setStats(currentStats => {
+      const uniqueWords = new Set(cards.map(c => c.word.toLowerCase())).size;
+      const languages = Array.from(new Set(cards.map(c => c.language)));
       
-      // Update stats
-      setStats(currentStats => {
-        const uniqueWords = new Set(newCards.map(c => c.word.toLowerCase())).size;
-        const languages = Array.from(new Set(newCards.map(c => c.language)));
-        const xpGain = card.difficulty * 10 + (card.rarity === 'epic' ? 50 : card.rarity === 'rare' ? 20 : 0);
-        const newXp = currentStats.xp + xpGain;
-        const newLevel = calculateLevel(newXp);
-        
-        const newStats: CollectionStats = {
-          ...currentStats,
-          totalCards: newCards.length,
-          uniqueWords,
-          languages,
-          xp: newXp,
-          level: newLevel
-        };
-        
-        // Check for new achievements
-        const newAchievements = checkAchievements(newStats, newCards);
-        if (newAchievements.length > 0) {
-          newStats.achievements = [...currentStats.achievements, ...newAchievements];
-        }
-        
-        return newStats;
-      });
+      // Calculate total XP based on cards
+      const totalXp = cards.reduce((xp, card) => {
+        const baseXp = card.difficulty * 10;
+        const rarityBonus = card.rarity === 'epic' ? 50 : card.rarity === 'rare' ? 20 : 0;
+        return xp + baseXp + rarityBonus;
+      }, 0);
       
-      return newCards;
+      const newLevel = calculateLevel(totalXp);
+      
+      const newStats: CollectionStats = {
+        ...currentStats,
+        totalCards: cards.length,
+        uniqueWords,
+        languages,
+        xp: totalXp,
+        level: newLevel
+      };
+      
+      // Check for new achievements
+      const newAchievements = checkAchievements(newStats, cards);
+      if (newAchievements.length > 0) {
+        newStats.achievements = [...currentStats.achievements, ...newAchievements];
+      }
+      
+            return newStats;
     });
   }, [checkAchievements]);
+
+  // Load data from Supabase and localStorage (for stats)
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Load collected cards from Supabase
+        const supabaseCards = await getUserCollectedCards();
+        setCollectedCards(supabaseCards);
+        
+        // Load stats from localStorage (will migrate to Supabase later)
+        const savedStats = localStorage.getItem(STATS_KEY);
+        if (savedStats) {
+          const parsedStats = JSON.parse(savedStats);
+          setStats({ ...defaultStats, ...parsedStats });
+        }
+        
+        // Recalculate stats based on current cards
+        updateStatsFromCards(supabaseCards);
+        
+      } catch (error) {
+        console.error('Failed to load collection data:', error);
+        // Fallback to empty collection on error
+        setCollectedCards([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [updateStatsFromCards]);
+
+  // Save stats to localStorage whenever they change
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    }
+  }, [stats, isLoading]);
+
+  const collectCard = useCallback(async (card: VocabularyCard) => {
+    try {
+      // Save to Supabase
+      await supabaseCollectCard(card);
+      
+      // Update local state
+      const collectedCard = {
+        ...card,
+        collectedAt: new Date()
+      };
+      
+      setCollectedCards(prev => {
+        const newCards = [collectedCard, ...prev];
+        
+        // Update stats based on new collection
+        updateStatsFromCards(newCards);
+        
+        return newCards;
+      });
+      
+    } catch (error) {
+      console.error('Failed to collect card:', error);
+      throw error; // Re-throw so UI can handle the error
+    }
+  }, [updateStatsFromCards]);
 
   const getCardsByLanguage = useCallback((language: string) => {
     return collectedCards.filter(card => card.language === language);
@@ -203,9 +230,10 @@ export const useCardCollection = () => {
   }, [collectedCards]);
 
   const clearCollection = useCallback(() => {
+    // Note: This only clears local state and localStorage
+    // In a real app, you'd want to clear the user's collection in Supabase too
     setCollectedCards([]);
     setStats(defaultStats);
-    localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(STATS_KEY);
   }, []);
 

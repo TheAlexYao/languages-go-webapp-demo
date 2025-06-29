@@ -16,6 +16,7 @@ import { useCardCollection } from './hooks/useCardCollection';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { getMockCommunityData } from './services/mockData';
+import { signInAnonymously, supabase } from './services/supabase';
 import { VocabularyCard, PhotoPin } from './types/vocabulary';
 import { Player } from './types/player';
 
@@ -28,6 +29,7 @@ function App() {
   
   const [currentTab, setCurrentTab] = useState<Tab>('camera');
   const [permissionState, setPermissionState] = useState<'loading' | 'granted' | 'denied'>('loading');
+  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'error'>('loading');
   const [pins, setPins] = useState<PhotoPin[]>([]);
   const [selectedCard, setSelectedCard] = useState<VocabularyCard | null>(null);
   const [selectedPin, setSelectedPin] = useState<PhotoPin | null>(null);
@@ -38,6 +40,44 @@ function App() {
   
   // Mock community data
   const communityData = getMockCommunityData();
+
+  // Initialize authentication on mount
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        // Check if user is already authenticated
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log('✅ User already authenticated:', session.user.id);
+          setAuthState('authenticated');
+        } else {
+          // Sign in anonymously
+          console.log('🔑 Signing in anonymously...');
+          const authData = await signInAnonymously();
+          console.log('✅ Anonymous authentication successful:', authData.user?.id);
+          setAuthState('authenticated');
+        }
+      } catch (error) {
+        console.error('❌ Authentication error:', error);
+        setAuthState('error');
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth state changed:', event, session?.user?.id);
+      if (session) {
+        setAuthState('authenticated');
+      } else {
+        setAuthState('loading');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Check permissions on mount
   useEffect(() => {
@@ -166,14 +206,39 @@ function App() {
     setSelectedPin(null);
   };
 
-  // Show loading screen until permissions are resolved
-  if (permissionState === 'loading' || collectionLoading) {
+  // Show loading screen until authentication and permissions are resolved
+  if (authState === 'loading' || permissionState === 'loading' || collectionLoading) {
     return (
       <LoadingScreen
         onPermissionGranted={handlePermissionGranted}
         onPermissionDenied={handlePermissionDenied}
         isPWA={isPWA}
       />
+    );
+  }
+
+  // Show authentication error state
+  if (authState === 'error') {
+    return (
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6" style={{ height: viewportHeight }}>
+        <div className="text-center text-gray-100 max-w-md">
+          <div className={`${isMobile ? 'w-20 h-20' : 'w-24 h-24'} bg-gradient-to-br from-red-500 to-pink-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl`}>
+            <span className={`${isMobile ? 'text-3xl' : 'text-4xl'}`}>🔐</span>
+          </div>
+          <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent`}>
+            Authentication Error
+          </h1>
+          <p className={`text-gray-400 mb-8 leading-relaxed ${isMobile ? 'text-sm' : ''}`}>
+            Unable to authenticate with the server. Please check your connection and try again.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className={`bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white ${isMobile ? 'px-6 py-3 text-sm' : 'px-8 py-4'} rounded-2xl transition-all duration-200 font-bold shadow-xl hover:shadow-2xl transform hover:scale-105`}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
     );
   }
 

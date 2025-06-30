@@ -101,17 +101,18 @@ Only return the comma-separated list, nothing else.`;
 
 async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage: string = 'es'): Promise<VocabularyCard[]> {
   try {
-    // First, find existing matches
+    // First, find existing matches based on English word only (ignore target language)
     const { data: existingCards, error } = await supabase
       .from('master_vocabulary')
       .select('*')
-      .or(keywords.map(keyword => `word.ilike.%${keyword}%`).join(','));
+      .or(keywords.map(keyword => `word.ilike.%${keyword}%`).join(','))
+      .eq('language', 'en'); // Only look for English base words
 
     if (error) {
       throw new Error(`Database query error: ${error.message}`);
     }
 
-    // Transform existing cards to include proper translation
+    // Transform existing cards to include proper translation for target language
     const transformedExistingCards = (existingCards || []).map(card => {
       // Get translation from JSONB translations field or fallback to translation column
       let cardTranslation = card.translation || '';
@@ -122,6 +123,7 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
       
       return {
         ...card,
+        language_detected: targetLanguage, // Set the target language for frontend
         translation: cardTranslation
       };
     });
@@ -135,7 +137,7 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
       keyword => !foundWords.has(keyword.toLowerCase())
     );
 
-    // If all keywords are found, return existing cards
+    // If all keywords are found, return existing cards with proper translations
     if (missingKeywords.length === 0) {
       return transformedExistingCards;
     }
@@ -145,13 +147,13 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
     
     const newCards = await generateNewVocabularyCards(missingKeywords, targetLanguage);
     
-    // Insert new cards into the database
+    // Insert new cards into the database (only once per English word)
     if (newCards.length > 0) {
       const { data: insertedCards, error: insertError } = await supabase
         .from('master_vocabulary')
         .insert(newCards.map(card => ({
           word: card.word,
-          language: 'en',
+          language: 'en', // Always store as English base word
           category: card.category,
           difficulty: parseInt(card.difficulty),
           rarity: card.rarity,
@@ -165,7 +167,7 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
         // Continue with existing cards even if insert fails
         return transformedExistingCards;
       } else {
-        // Transform inserted cards to include proper translation
+        // Transform inserted cards to include proper translation for target language
         const transformedNewCards = (insertedCards || []).map(card => {
           let cardTranslation = card.word;
           
@@ -175,6 +177,7 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
           
           return {
             ...card,
+            language_detected: targetLanguage, // Set the target language for frontend
             translation: cardTranslation
           };
         });

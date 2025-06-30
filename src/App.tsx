@@ -46,7 +46,7 @@ function App() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [collectingCardId, setCollectingCardId] = useState<string | null>(null);
   const [showCollectSuccess, setShowCollectSuccess] = useState<{ cardId: string; word: string } | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('es'); // Default to Spanish
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en'); // Default to English to avoid duplicates
   
   // Mock community data
   const communityData = getMockCommunityData();

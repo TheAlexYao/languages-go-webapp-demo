@@ -19,7 +19,7 @@ interface PhotoCaptureProps {
 export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   onCardsGenerated,
   isEnabled = true,
-  selectedLanguage = 'es',
+  selectedLanguage = 'en',
   location,
   locationLoading,
   locationError,

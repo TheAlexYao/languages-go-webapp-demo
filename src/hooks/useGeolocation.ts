@@ -11,7 +11,7 @@ const DEFAULT_LOCATION: Location = {
 export const useGeolocation = () => {
   const [state, setState] = useState<GeolocationState>({
     location: DEFAULT_LOCATION, // Always start with default location
-    accuracy: DEFAULT_LOCATION.accuracy,
+    accuracy: DEFAULT_LOCATION.accuracy || null,
     isLoading: false,
     error: null,
     isSupported: 'geolocation' in navigator
@@ -28,21 +28,10 @@ export const useGeolocation = () => {
 
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      // Set a timeout to prevent infinite loading
-      const timeoutId = setTimeout(() => {
-        setState(prev => ({ 
-          ...prev, 
-          isLoading: false, 
-          error: 'Location request timed out. Using default location.' 
-        }));
-        
-        resolve(DEFAULT_LOCATION);
-      }, 8000); // 8 second timeout
+      console.log('📍 Requesting location with generous timeout');
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          clearTimeout(timeoutId);
-          
           const location: Location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
@@ -52,16 +41,15 @@ export const useGeolocation = () => {
           setState(prev => ({
             ...prev,
             location,
-            accuracy: position.coords.accuracy,
+            accuracy: position.coords.accuracy || null,
             isLoading: false,
             error: null
           }));
           
-          console.log('Location obtained:', location);
+          console.log('✅ Real location obtained:', location);
           resolve(location);
         },
         (error) => {
-          clearTimeout(timeoutId);
           
           let errorMessage = 'Failed to get location';
           
@@ -87,8 +75,8 @@ export const useGeolocation = () => {
           resolve(DEFAULT_LOCATION);
         },
         {
-          enableHighAccuracy: true,
-          timeout: 7000, // 7 second timeout for the actual geolocation call
+          enableHighAccuracy: false, // Disable for mobile reliability
+          timeout: 10000, // More generous 10-second timeout
           maximumAge: 300000 // 5 minutes cache
         }
       );
@@ -117,7 +105,7 @@ export const useGeolocation = () => {
         setState(prev => ({
           ...prev,
           location,
-          accuracy: position.coords.accuracy,
+          accuracy: position.coords.accuracy || null,
           error: null
         }));
       },

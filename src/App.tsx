@@ -22,24 +22,21 @@ import { signInAnonymously, supabase, savePinsLocally, loadPinsLocally, resolveP
 import { initializeStickerGeneration, getStickerUrl, processNewVocabularyForStickers } from './services/stickers/stickerIntegration';
 import { VocabularyCard, PhotoPin, CollectionStats } from './types/vocabulary';
 import { Player } from './types/player';
-import { PWAOnboardingScreen } from './components/PWAOnboardingScreen';
-import { pwaManager } from './utils/pwa';
+import { A2HSIosPrompt } from './components/A2HSIosPrompt';
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error';
 type PermissionState = 'loading' | 'granted' | 'denied';
-type PWAState = 'checking' | 'show-onboarding' | 'completed';
 type Tab = 'camera' | 'map' | 'collection' | 'community';
 
 function App() {
   console.log('🚀 App component rendering at:', new Date().toISOString());
   
   const { isMobile, viewportHeight, isPWA } = useMobileDetection();
-  const { location, getCurrentLocation, isLoading: locationLoading, error: locationError } = useGeolocation();
+  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading, error: locationError } = useGeolocation();
   
   const [currentTab, setCurrentTab] = useState<Tab>('camera');
   const [permissionState, setPermissionState] = useState<PermissionState>('loading');
   const [authState, setAuthState] = useState<AuthState>('loading');
-  const [pwaState, setPwaState] = useState<PWAState>('checking');
   
   console.log(' Current auth state in render:', authState);
   
@@ -59,24 +56,22 @@ function App() {
   // Use hook's stats directly - the hook now handles both authenticated and demo modes
   const currentStats = hookStats;
 
-  // Check PWA state on mount
+  // Start watching location when permissions are granted
   useEffect(() => {
-    const checkPWAState = () => {
-      if (pwaManager.isAppInstalled()) {
-        // Already installed as PWA
-        setPwaState('completed');
-      } else if (pwaManager.shouldShowOnboarding()) {
-        // Should show onboarding based on PWA manager logic
-        setPwaState('show-onboarding');
-      } else {
-        // Skip onboarding
-        setPwaState('completed');
+    let watchId: number | null = null;
+
+    if (permissionState === 'granted') {
+      watchId = watchLocation();
+      console.log('🛰️ Started watching location with ID:', watchId);
+    }
+
+    return () => {
+      if (watchId) {
+        clearWatch(watchId);
+        console.log('🛰️ Stopped watching location with ID:', watchId);
       }
     };
-
-    // Small delay to let PWA manager initialize
-    setTimeout(checkPWAState, 500);
-  }, [isMobile]);
+  }, [permissionState, watchLocation, clearWatch]);
 
   // Initialize authentication on mount
   useEffect(() => {

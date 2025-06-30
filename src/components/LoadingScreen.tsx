@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { Camera, MapPin, Check, ArrowRight } from 'lucide-react';
+import { MapPin, Check } from 'lucide-react';
 
-type PermissionStep = 'intro' | 'camera' | 'location' | 'complete';
+type PermissionStep = 'intro' | 'location' | 'complete';
 
 interface LoadingScreenProps {
   onPermissionGranted: () => void;
@@ -19,19 +19,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [isRequesting, setIsRequesting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const requestCameraPermission = async () => {
-    setIsRequesting(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      stream.getTracks().forEach(track => track.stop());
-      setStep('location');
-    } catch (error) {
-      console.error('Camera permission denied:', error);
-      onPermissionDenied();
-    } finally {
-      setIsRequesting(false);
-    }
-  };
+
 
   const requestLocationPermission = async () => {
     setIsRequesting(true);
@@ -78,17 +66,6 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   const renderContent = () => {
     switch (step) {
-      case 'camera':
-        return (
-          <PermissionCard
-            icon={<Camera className="h-8 w-8" />}
-            title="Enable Your Camera"
-            description="We need camera access to let you capture objects and discover new vocabulary in the world around you."
-            buttonText="Allow Camera"
-            onAction={requestCameraPermission}
-            isRequesting={isRequesting}
-          />
-        );
       case 'location':
         return (
           <PermissionCard
@@ -108,9 +85,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <PermissionCard
             icon={<img src="/icons/map-kun.svg" alt="Languages Go" className="h-10 w-10" />}
             title="Welcome to Languages Go!"
-            description="Learn vocabulary in 8 different languages! Before you start your adventure, we need to set up a few things."
+            description="Learn vocabulary in 8 different languages by taking photos of the world around you."
             buttonText="Get Started"
-            onAction={() => setStep('camera')}
+            onAction={() => setStep('location')}
           />
         );
     }

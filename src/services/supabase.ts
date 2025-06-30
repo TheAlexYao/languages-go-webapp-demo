@@ -512,11 +512,44 @@ export const collectCard = async (card: VocabularyCard): Promise<void> => {
       return;
     }
 
+    // First, ensure the card exists in vocabulary_cards table
+    const { data: existingCard, error: checkError } = await supabase
+      .from('vocabulary_cards')
+      .select('id')
+      .eq('id', card.id)
+      .single();
+
+    let cardId = card.id;
+
+    if (checkError || !existingCard) {
+      // Card doesn't exist, insert it first
+      console.log('📝 Inserting new vocabulary card:', card.word);
+      const { data: insertedCard, error: insertError } = await supabase
+        .from('vocabulary_cards')
+        .insert({
+          word: card.word,
+          translation: card.translation,
+          language_detected: card.language,
+          difficulty: card.difficulty,
+          wcache_id: card.pinId
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        console.error('Error inserting vocabulary card:', insertError);
+        throw insertError;
+      }
+
+      cardId = insertedCard.id;
+    }
+
+    // Now add to user's collection
     const { error } = await supabase
       .from('user_collections')
       .insert({
         user_id: user.id,
-        card_id: card.id,
+        card_id: cardId,
         collected_at: new Date().toISOString()
       });
 
@@ -524,6 +557,8 @@ export const collectCard = async (card: VocabularyCard): Promise<void> => {
       console.error('Error collecting card:', error);
       throw error;
     }
+
+    console.log('✅ Card collected successfully:', card.word);
   } catch (error) {
     console.error('Error in collectCard:', error);
     throw error;

@@ -244,6 +244,28 @@ export const useCardCollection = (isAuthenticated: boolean = false) => {
           // Load collected cards from Supabase for authenticated users
           console.log('📚 Loading collected cards from Supabase...');
           cards = await getUserCollectedCards();
+          
+          // Check if we need to migrate demo cards
+          const demoCards = loadDemoCards();
+          if (demoCards.length > 0 && cards.length === 0) {
+            console.log('🔄 Migrating demo cards to Supabase...', demoCards.length, 'cards');
+            try {
+              // Migrate each demo card to Supabase
+              await Promise.all(demoCards.map(card => supabaseCollectCard(card)));
+              
+              // Reload cards from Supabase to get the correct IDs
+              cards = await getUserCollectedCards();
+              
+              // Clear demo cards since they're now in Supabase
+              localStorage.removeItem(DEMO_CARDS_KEY);
+              
+              console.log('✅ Successfully migrated demo cards to Supabase');
+            } catch (error) {
+              console.error('❌ Failed to migrate demo cards:', error);
+              // Fallback to using demo cards if migration fails
+              cards = demoCards;
+            }
+          }
         } else {
           // Load demo cards from localStorage for unauthenticated users
           console.log('🎭 Loading demo cards from localStorage...');

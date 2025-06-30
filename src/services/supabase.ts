@@ -308,33 +308,29 @@ export const findCardsFromPhoto = async (
         await new Promise(resolve => setTimeout(resolve, API_CONFIG.MOCK_DATA.DELAY_MS));
       }
       
-      // Return mock data for testing
-      const mockCards: VocabularyCard[] = [
-        {
-          id: 'mock-1',
-          word: 'building',
-          translation: 'edificio',
-          language: API_CONFIG.DEFAULT_LANGUAGE,
-          difficulty: 2 as const,
-          aiImageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=400&fit=crop',
-          aiPrompt: 'A modern building with glass windows',
-          pinId: pinId,
-          rarity: 'common' as const,
-          category: 'architecture'
-        },
-        {
-          id: 'mock-2',
-          word: 'street',
-          translation: 'calle',
-          language: API_CONFIG.DEFAULT_LANGUAGE,
-          difficulty: 1 as const,
-          aiImageUrl: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=400&fit=crop',
-          aiPrompt: 'A busy city street with cars',
-          pinId: pinId,
-          rarity: 'common' as const,
-          category: 'urban'
-        }
+      // Return mock data for testing - dynamically generate based on requested language
+      const mockWords = [
+        { en: 'building', es: 'edificio', fr: 'bâtiment', de: 'Gebäude', it: 'edificio', ja: '建物', ko: '건물', pt: 'edifício', zh: '建筑物' },
+        { en: 'street', es: 'calle', fr: 'rue', de: 'Straße', it: 'strada', ja: '通り', ko: '거리', pt: 'rua', zh: '街道' },
+        { en: 'car', es: 'coche', fr: 'voiture', de: 'Auto', it: 'auto', ja: '車', ko: '자동차', pt: 'carro', zh: '汽车' }
       ];
+      
+      const mockCards: VocabularyCard[] = mockWords.map((wordSet, index) => ({
+        id: `mock-${index + 1}`,
+        word: wordSet[userLanguage as keyof typeof wordSet] || wordSet.es, // Use requested language or fallback to Spanish
+        translation: wordSet.en, // English translation
+        language: userLanguage,
+        difficulty: (index % 3 + 1) as 1 | 2 | 3,
+        aiImageUrl: index === 0 
+          ? 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=400&fit=crop'
+          : index === 1 
+          ? 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=400&fit=crop'
+          : 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=400&h=400&fit=crop',
+        aiPrompt: `A ${wordSet.en} in the real world`,
+        pinId: pinId,
+        rarity: index === 2 ? 'rare' as const : 'common' as const,
+        category: index === 0 ? 'architecture' : index === 1 ? 'urban' : 'transport'
+      }));
 
       const mockPin: PhotoPin = {
         id: pinId,
@@ -433,18 +429,95 @@ export const findCardsFromPhoto = async (
 };
 
 // Fetch user's collected cards
+// Helper function to determine rarity based on difficulty
+const determineRarity = (difficulty: number): 'common' | 'rare' | 'epic' => {
+  if (difficulty >= 3) return 'epic';
+  if (difficulty >= 2) return 'rare';
+  return 'common';
+};
+
+// Helper function to detect language based on character patterns
+const detectLanguage = (text: string): string => {
+  if (!text) return 'en';
+  
+  // Japanese - contains hiragana, katakana, or kanji
+  if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text)) return 'ja';
+  
+  // Korean - contains Hangul
+  if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text)) return 'ko';
+  
+  // Chinese - contains Chinese characters (but not Japanese kanji context)
+  if (/[\u4E00-\u9FAF]/.test(text) && !/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) return 'zh';
+  
+  // Spanish - contains Spanish-specific characters
+  if (/[áéíóúüñ¿¡]/i.test(text)) return 'es';
+  
+  // French - contains French-specific characters
+  if (/[àâäéèêëïîôöùûüÿç]/i.test(text)) return 'fr';
+  
+  // German - contains German-specific characters
+  if (/[äöüß]/i.test(text)) return 'de';
+  
+  // Italian - contains Italian-specific characters
+  if (/[àèéìíîòóù]/i.test(text)) return 'it';
+  
+  // Portuguese - contains Portuguese-specific characters
+  if (/[ãáàâäêéèíîóôõöúù]/i.test(text)) return 'pt';
+  
+  // Default to English
+  return 'en';
+};
+
+// Helper function to get the translated word for a specific language
+const getTranslatedWord = (englishWord: string, translations: any, targetLanguage: string): string => {
+  if (!translations || typeof translations !== 'object') return englishWord;
+  
+  // If target language translation exists, return it
+  if (translations[targetLanguage]) {
+    return translations[targetLanguage];
+  }
+  
+  // Try to find any non-English translation as fallback
+  const nonEnglishTranslations = Object.entries(translations).filter(([lang, _]) => lang !== 'en');
+  if (nonEnglishTranslations.length > 0) {
+    const [detectedLang, translation] = nonEnglishTranslations[0] as [string, string];
+    return translation;
+  }
+  
+  return englishWord;
+};
+
+// Helper function to guess category based on word
+const guessCategory = (word: string): string => {
+  const categoryKeywords: Record<string, string[]> = {
+    'animals': ['cat', 'dog', 'bird', 'fish', 'gato', 'perro', 'pájaro', 'pez', 'chat', 'chien'],
+    'food': ['apple', 'bread', 'coffee', 'tea', 'manzana', 'pan', 'café', 'té', 'pomme', 'pain'],
+    'nature': ['tree', 'flower', 'sun', 'moon', 'water', 'árbol', 'flor', 'sol', 'luna', 'agua', 'arbre', 'fleur'],
+    'urban': ['house', 'door', 'street', 'car', 'casa', 'puerta', 'calle', 'coche', 'maison', 'porte'],
+    'technology': ['laptop', 'computer', 'phone', 'keyboard', 'mouse', 'monitor', 'portátil', 'computadora', 'teléfono', 'teclado', 'ratón']
+  };
+  
+  const lowerWord = word.toLowerCase();
+  for (const [category, keywords] of Object.entries(categoryKeywords)) {
+    if (keywords.some(keyword => lowerWord.includes(keyword) || keyword.includes(lowerWord))) {
+      return category;
+    }
+  }
+  return 'general';
+};
+
 export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      // Demo mode: Return mock collected cards
+      // Demo mode: Return mock collected cards showcasing different languages
       console.log('🎭 Demo mode: Returning mock collected cards');
       return [
         {
           id: 'demo-collected-1',
-          word: 'cat',
-          translation: 'gato',
-          language: 'Spanish',
+          word: 'gato',
+          translation: 'cat',
+          language: 'es',
           difficulty: 1 as const,
           aiImageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop',
           aiPrompt: 'A cute cat sitting in sunlight',
@@ -455,16 +528,42 @@ export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
         },
         {
           id: 'demo-collected-2',
-          word: 'book',
-          translation: 'libro',
-          language: 'Spanish',
+          word: 'chat',
+          translation: 'cat',
+          language: 'fr',
+          difficulty: 1 as const,
+          aiImageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop',
+          aiPrompt: 'A cute cat sitting in sunlight',
+          pinId: 'demo-pin-collected-2',
+          rarity: 'common' as const,
+          category: 'animals',
+          collectedAt: new Date(Date.now() - 172800000) // 2 days ago
+        },
+        {
+          id: 'demo-collected-3',
+          word: '本',
+          translation: 'book',
+          language: 'ja',
           difficulty: 2 as const,
           aiImageUrl: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=400&fit=crop',
           aiPrompt: 'An open book with pages fluttering',
-          pinId: 'demo-pin-collected-2',
+          pinId: 'demo-pin-collected-3',
           rarity: 'rare' as const,
           category: 'objects',
-          collectedAt: new Date(Date.now() - 172800000) // 2 days ago
+          collectedAt: new Date(Date.now() - 259200000) // 3 days ago
+        },
+        {
+          id: 'demo-collected-4',
+          word: 'Buch',
+          translation: 'book',
+          language: 'de',
+          difficulty: 2 as const,
+          aiImageUrl: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=400&fit=crop',
+          aiPrompt: 'An open book with pages fluttering',
+          pinId: 'demo-pin-collected-4',
+          rarity: 'rare' as const,
+          category: 'objects',
+          collectedAt: new Date(Date.now() - 345600000) // 4 days ago
         }
       ];
     }
@@ -490,20 +589,92 @@ export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
       throw error;
     }
 
+    // Get all unique words from collected cards for master vocabulary lookup
+    const uniqueWords = [...new Set(data.map((row: any) => row.vocabulary_cards.word))];
+    
+    // Fetch master vocabulary data for all words in one query (including translations)
+    const { data: masterVocabData } = await supabase
+      .from('master_vocabulary')
+      .select('word, rarity, category, translations')
+      .in('word', uniqueWords);
+    
+    // Create a lookup map for faster access
+    const masterVocabMap = new Map();
+    if (masterVocabData) {
+      masterVocabData.forEach((item: any) => {
+        masterVocabMap.set(item.word, { 
+          rarity: item.rarity, 
+          category: item.category, 
+          translations: item.translations 
+        });
+      });
+    }
+
     // Transform the data to match our VocabularyCard type
-    return data.map((row: any) => ({
-      id: row.vocabulary_cards.id,
-      word: row.vocabulary_cards.word,
-      translation: row.vocabulary_cards.translation,
-      language: row.vocabulary_cards.language_detected || 'Spanish',
-      difficulty: row.vocabulary_cards.difficulty || 1,
-      aiImageUrl: '', // Not stored in vocabulary_cards
-      aiPrompt: '', // Not stored in vocabulary_cards
-      pinId: row.vocabulary_cards.wcache_id || '',
-      collectedAt: new Date(row.collected_at),
-      rarity: 'common' as const, // Default since not in vocabulary_cards
-      category: 'general' // Default since not in vocabulary_cards
-    }));
+    const transformedCards = data.map((row: any) => {
+      const card = row.vocabulary_cards;
+      
+      // Get rarity, category, and translations from master vocab lookup, with fallbacks
+      const masterInfo = masterVocabMap.get(card.word);
+      const rarity = masterInfo?.rarity || determineRarity(card.difficulty || 1);
+      const category = masterInfo?.category || guessCategory(card.word);
+      const translations = masterInfo?.translations || {};
+
+      // Determine the display language and word
+      let displayWord = card.word;
+      let displayTranslation = card.translation;
+      let language = 'en';
+
+      // First, try to detect language from existing translation
+      if (card.translation) {
+        language = detectLanguage(card.translation);
+        if (language !== 'en') {
+          // If translation is in a foreign language, use it as the main word
+          displayWord = card.translation;
+          displayTranslation = card.word; // English word becomes translation
+        }
+      }
+
+      // If no foreign language detected, check if we have translations from master vocab
+      if (language === 'en' && translations && Object.keys(translations).length > 0) {
+        // Get the first available non-English translation
+        const availableLanguages = Object.keys(translations).filter(lang => lang !== 'en');
+        if (availableLanguages.length > 0) {
+          // Prefer Spanish, then French, then German, then others
+          const preferredOrder = ['es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'];
+          const preferredLang = preferredOrder.find(lang => translations[lang]) || availableLanguages[0];
+          
+          displayWord = translations[preferredLang];
+          displayTranslation = card.word; // English word becomes translation
+          language = preferredLang;
+        }
+      }
+
+      // If still English, try to detect from the word itself
+      if (language === 'en') {
+        language = detectLanguage(card.word);
+        if (language !== 'en') {
+          // Word is in foreign language, translation should be English
+          displayTranslation = card.translation || card.word;
+        }
+      }
+
+      return {
+        id: card.id,
+        word: displayWord,
+        translation: displayTranslation || displayWord,
+        language,
+        difficulty: card.difficulty || 1,
+        aiImageUrl: '', // Not stored in vocabulary_cards
+        aiPrompt: '', // Not stored in vocabulary_cards
+        pinId: card.wcache_id || '',
+        collectedAt: new Date(row.collected_at),
+        rarity,
+        category
+      };
+    });
+    
+    return transformedCards;
   } catch (error) {
     console.error('Error in getUserCollectedCards:', error);
     throw error;

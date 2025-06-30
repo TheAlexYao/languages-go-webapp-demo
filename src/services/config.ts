@@ -3,8 +3,21 @@ export const API_CONFIG = {
   // Set to true to use real Gemini API, false to use mock data
   USE_REAL_GEMINI_API: true,
   
-  // Default language for vocabulary
-  DEFAULT_LANGUAGE: 'Spanish',
+  // Supported languages
+  SUPPORTED_LANGUAGES: {
+    'en': { name: 'English', native: 'English', flag: '🇬🇧' },
+    'es': { name: 'Spanish', native: 'Español', flag: '🇪🇸' },
+    'fr': { name: 'French', native: 'Français', flag: '🇫🇷' },
+    'de': { name: 'German', native: 'Deutsch', flag: '🇩🇪' },
+    'it': { name: 'Italian', native: 'Italiano', flag: '🇮🇹' },
+    'pt': { name: 'Portuguese', native: 'Português', flag: '🇵🇹' },
+    'ja': { name: 'Japanese', native: '日本語', flag: '🇯🇵' },
+    'ko': { name: 'Korean', native: '한국어', flag: '🇰🇷' },
+    'zh': { name: 'Chinese', native: '中文', flag: '🇨🇳' }
+  },
+  
+  // Default language for vocabulary (language code)
+  DEFAULT_LANGUAGE: 'es', // Spanish as default, but system supports all languages
   
   // Photo processing settings
   PHOTO_PROCESSING: {

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Star, BookOpen, Trophy, Sparkles, Loader2 } from 'lucide-react';
+import { Star, BookOpen, Trophy, Sparkles, Loader2, Clock, Flame, Zap } from 'lucide-react';
 import { VocabularyCard as VocabularyCardType } from '../../types/vocabulary';
 import { AudioButton } from '../UI/AudioButton';
-import { getStickerUrl, needsSticker } from '../../services/stickers/stickerIntegration';
 
 interface VocabularyCardProps {
   card: VocabularyCardType;
@@ -13,6 +12,28 @@ interface VocabularyCardProps {
   className?: string;
   showAudioButton?: boolean;
 }
+
+// Simple placeholder generator for cards without images
+const getPlaceholderImage = (card: VocabularyCardType): string => {
+  if (card.aiImageUrl && card.aiImageUrl.trim() !== '') {
+    return card.aiImageUrl;
+  }
+  
+  // Generate a simple colored placeholder based on first letter
+  const firstLetter = card.translation.charAt(0).toUpperCase();
+  const colors = ['#FF9B9B', '#FFDAB9', '#90EE90', '#B0C4DE', '#D3D3D3', '#FDBCB4'];
+  const colorIndex = firstLetter.charCodeAt(0) % colors.length;
+  const bgColor = colors[colorIndex];
+  
+  const svg = `
+    <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="200" fill="${bgColor}" rx="20"/>
+      <text x="100" y="120" font-family="Arial, sans-serif" font-size="80" font-weight="bold" text-anchor="middle" fill="white">${firstLetter}</text>
+    </svg>
+  `;
+  
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+};
 
 export const VocabularyCard: React.FC<VocabularyCardProps> = ({
   card,
@@ -27,42 +48,21 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [stickerGenerating, setStickerGenerating] = useState(false);
-  const [currentImageUrl, setCurrentImageUrl] = useState(getStickerUrl(card));
+  const [currentImageUrl, setCurrentImageUrl] = useState(getPlaceholderImage(card));
 
   // Update image URL when card data changes
   useEffect(() => {
-    const newImageUrl = getStickerUrl(card);
+    const newImageUrl = getPlaceholderImage(card);
     setCurrentImageUrl(newImageUrl);
-    
-    // Check if we need to generate a sticker
-    if (needsSticker(card)) {
-      setStickerGenerating(true);
-      
-      // Poll for sticker completion (simplified - in production you'd use websockets or polling)
-      const checkSticker = setInterval(async () => {
-        try {
-          const stickerUrl = getStickerUrl(card);
-          if (stickerUrl !== currentImageUrl && !stickerUrl.startsWith('data:image/svg')) {
-            setCurrentImageUrl(stickerUrl);
-            setStickerGenerating(false);
-            clearInterval(checkSticker);
-          }
-        } catch (error) {
-          console.error('Error checking sticker status:', error);
-        }
-      }, 5000); // Check every 5 seconds
+  }, [card]);
 
-      // Cleanup after 2 minutes
-      setTimeout(() => {
-        clearInterval(checkSticker);
-        setStickerGenerating(false);
-      }, 120000);
-
-      return () => clearInterval(checkSticker);
-    } else {
-      setStickerGenerating(false);
+  // Check if the card needs a sticker and try to load it
+  useEffect(() => {
+    // Simple image loading check
+    if (card.aiImageUrl && card.aiImageUrl !== currentImageUrl) {
+      setCurrentImageUrl(card.aiImageUrl);
     }
-  }, [card.aiImageUrl, card.word]); // React to changes in the card's image URL
+  }, [card, currentImageUrl]);
 
   const getRarityGradient = (rarity: string) => {
     switch (rarity) {
@@ -103,7 +103,7 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
     }
   };
 
-  const displayImageUrl = currentImageUrl || getStickerUrl(card);
+  const displayImageUrl = currentImageUrl || getPlaceholderImage(card);
 
   return (
     <div 

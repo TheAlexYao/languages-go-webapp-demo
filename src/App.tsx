@@ -13,13 +13,11 @@ import { TabNavigation } from './components/Layout/TabNavigation';
 import { PoweredByBolt } from './components/Layout/PoweredByBolt';
 import { InstallPrompt } from './components/InstallPrompt';
 import { AuthScreen } from './components/Auth/AuthScreen';
-import { StickerStatusIndicator } from './components/UI/StickerStatusIndicator';
 import { useCardCollection } from './hooks/useCardCollection';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { getMockCommunityData } from './services/mockData';
 import { signInAnonymously, supabase, savePinsLocally, loadPinsLocally, resolvePhotoUrl } from './services/supabase';
-import { initializeStickerGeneration, getStickerUrl, processNewVocabularyForStickers } from './services/stickers/stickerIntegration';
 import { VocabularyCard, PhotoPin, CollectionStats } from './types/vocabulary';
 import { Player } from './types/player';
 import { A2HSIosPrompt } from './components/A2HSIosPrompt';
@@ -94,11 +92,6 @@ function App() {
     };
 
     checkExistingAuth();
-
-    // Initialize sticker generation for existing vocabulary
-    initializeStickerGeneration().catch(error => {
-      console.error('Failed to initialize sticker generation:', error);
-    });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -227,8 +220,6 @@ function App() {
   const handlePermissionDenied = () => {
     setPermissionState('denied');
   };
-
-
 
   const handleCardsGenerated = (cards: VocabularyCard[], pin: PhotoPin) => {
     console.log('🎯 Cards generated:', { cards: cards.length, pin: pin.id });
@@ -379,8 +370,6 @@ function App() {
       />
     );
   }
-
-
 
   // Show authentication error state
   if (authState === 'error') {
@@ -605,7 +594,7 @@ function App() {
                             </div>
                           ) : (
                             <img
-                              src={getStickerUrl(card)}
+                              src={card.aiImageUrl}
                               alt={card.word}
                               className="w-full h-full object-contain p-1"
                             />
@@ -682,9 +671,6 @@ function App() {
           </div>
         </div>
       )}
-
-      {/* Global sticker generation status */}
-      <StickerStatusIndicator />
 
       {/* Powered by Bolt Logo */}
       <PoweredByBolt />

@@ -1,8 +1,7 @@
 import React from 'react';
-import { X, BookOpen, MapPin, Calendar, Star, Trophy } from 'lucide-react';
+import { X, BookOpen, MapPin, Calendar, Star, Trophy, Clock } from 'lucide-react';
 import { VocabularyCard } from '../../types/vocabulary';
 import { AudioButton } from '../UI/AudioButton';
-import { getStickerUrl } from '../../services/stickers/stickerIntegration';
 
 interface CardModalProps {
   card: VocabularyCard;
@@ -46,9 +45,9 @@ export const CardModal: React.FC<CardModalProps> = ({ card, onClose }) => {
           <div className="flex justify-center">
             <div className="w-32 h-32 bg-white rounded-2xl overflow-hidden shadow-lg border-2 border-gray-100">
               <img
-                src={getStickerUrl(card)}
+                src={card.aiImageUrl || `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(`<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" fill="#E0E0E0" rx="20"/><text x="100" y="120" font-family="Arial, sans-serif" font-size="80" font-weight="bold" text-anchor="middle" fill="white">${card.translation.charAt(0).toUpperCase()}</text></svg>`)))}`}
                 alt={card.word}
-                className="w-full h-full object-contain p-2"
+                className="w-full h-48 object-cover rounded-lg shadow-md"
               />
             </div>
           </div>

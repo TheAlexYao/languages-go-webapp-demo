@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { VocabularyCard, PhotoPin } from '../types/vocabulary';
+import { VocabularyCard, PhotoPin, CollectionStats } from '../types/vocabulary';
 import { Location } from '../types/location';
 import { shouldUseRealAPI, debugLog, API_CONFIG, IS_DEVELOPMENT, DEV_MODE_CONFIG, AUTH_CONFIG } from './config';
-import { processNewVocabularyForStickers } from './stickers/stickerIntegration';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -409,16 +408,6 @@ export const findCardsFromPhoto = async (
     savePinsLocally(existingPins);
 
     debugLog(`✅ Found ${vocabularyCards.length} vocabulary matches from keywords: ${data.keywords_found?.join(', ') || 'none'}`);
-
-    // Queue new vocabulary cards for background sticker generation
-    if (vocabularyCards.length > 0) {
-      // Fire-and-forget background sticker generation
-      setTimeout(() => {
-        processNewVocabularyForStickers(vocabularyCards).catch(error => {
-          console.error('Background sticker generation failed:', error);
-        });
-      }, 0); // Run on next tick to avoid blocking
-    }
 
     return { cards: vocabularyCards, pin: photoPin };
   } catch (error) {

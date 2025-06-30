@@ -56,8 +56,10 @@ export const needsSticker = (card: VocabularyCard): boolean => {
 
 // Get sticker URL for a card (with fallback)
 export const getStickerUrl = (card: VocabularyCard): string => {
-  // If card has any valid image URL, use it
-  if (card.aiImageUrl && card.aiImageUrl.length > 0) {
+  // Only use image URL if it's a proper sticker (from Supabase storage)
+  if (card.aiImageUrl && 
+      card.aiImageUrl.length > 0 && 
+      (card.aiImageUrl.includes('stickers') || card.aiImageUrl.includes('supabase.co/storage'))) {
     return card.aiImageUrl;
   }
   

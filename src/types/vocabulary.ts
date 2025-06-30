@@ -12,6 +12,10 @@ export interface VocabularyCard {
   category: string;
   pronunciation?: string;
   exampleSentence?: string;
+  // Collection progress metadata
+  masteryLevel?: number;
+  reviewCount?: number;
+  lastReviewed?: Date;
 }
 
 export interface PhotoPin {

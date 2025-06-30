@@ -147,7 +147,7 @@ class StickerGenerationQueue {
         .from('sticker_generation_jobs')
         .insert({
           id: job.id,
-          card_id: job.cardId,
+          card_id: parseInt(job.cardId), // Convert to bigint
           word: job.word,
           language: job.language,
           category: job.category,
@@ -196,7 +196,7 @@ class StickerGenerationQueue {
     
     return {
       id: data.id,
-      cardId: data.card_id,
+      cardId: data.card_id.toString(), // Convert bigint to string
       word: data.word,
       language: data.language,
       category: data.category,

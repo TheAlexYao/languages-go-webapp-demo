@@ -196,8 +196,7 @@ export const updateCardWithSticker = async (
     const { error } = await supabase
       .from('vocabulary_cards')
       .update({ 
-        ai_image_url: stickerUrl,
-        updated_at: new Date().toISOString()
+        ai_image_url: stickerUrl
       })
       .eq('id', cardId);
 

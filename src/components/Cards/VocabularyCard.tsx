@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Star, BookOpen, Trophy, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, BookOpen, Trophy, Sparkles, Loader2 } from 'lucide-react';
 import { VocabularyCard as VocabularyCardType } from '../../types/vocabulary';
 import { AudioButton } from '../UI/AudioButton';
+import { getStickerUrl, needsSticker } from '../../services/stickers/stickerIntegration';
 
 interface VocabularyCardProps {
   card: VocabularyCardType;
@@ -10,6 +11,7 @@ interface VocabularyCardProps {
   showCollectButton?: boolean;
   onClick?: () => void;
   className?: string;
+  showAudioButton?: boolean;
 }
 
 export const VocabularyCard: React.FC<VocabularyCardProps> = ({
@@ -18,10 +20,45 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
   isCollected = false,
   showCollectButton = false,
   onClick,
-  className = ''
+  className = '',
+  showAudioButton = true
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [stickerGenerating, setStickerGenerating] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState(card.aiImageUrl);
+
+  // Check if sticker is being generated
+  useEffect(() => {
+    if (needsSticker(card)) {
+      setStickerGenerating(true);
+      
+      // Poll for sticker completion (simplified - in production you'd use websockets or polling)
+      const checkSticker = setInterval(async () => {
+        try {
+          // In a real implementation, you'd check the sticker job status
+          // For now, we'll just use the getStickerUrl function
+          const stickerUrl = getStickerUrl(card);
+          if (stickerUrl !== currentImageUrl && !stickerUrl.startsWith('data:image/svg')) {
+            setCurrentImageUrl(stickerUrl);
+            setStickerGenerating(false);
+            clearInterval(checkSticker);
+          }
+        } catch (error) {
+          console.error('Error checking sticker status:', error);
+        }
+      }, 5000); // Check every 5 seconds
+
+      // Cleanup after 2 minutes
+      setTimeout(() => {
+        clearInterval(checkSticker);
+        setStickerGenerating(false);
+      }, 120000);
+
+      return () => clearInterval(checkSticker);
+    }
+  }, [card, currentImageUrl]);
 
   const getRarityGradient = (rarity: string) => {
     switch (rarity) {
@@ -62,6 +99,8 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
     }
   };
 
+  const displayImageUrl = currentImageUrl || getStickerUrl(card);
+
   return (
     <div 
       className={`
@@ -70,6 +109,14 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
       `}
       onClick={handleCardClick}
     >
+      {/* Sticker Generation Indicator */}
+      {stickerGenerating && (
+        <div className="absolute top-1 right-1 z-10 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1 shadow-lg">
+          <Sparkles className="h-3 w-3 animate-pulse" />
+          <span>Generating sticker...</span>
+        </div>
+      )}
+
       <div className={`
         relative w-full h-full transition-transform duration-700 transform-style-preserve-3d
         ${isFlipped ? 'rotate-y-180' : ''}
@@ -102,21 +149,44 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
           {/* Card content */}
           <div className="p-5 h-full flex flex-col">
             {/* AI Generated Image */}
-            <div className="flex-1 flex items-center justify-center mb-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-inner border border-gray-200/50">
-              {!imageLoaded && (
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
+            <div className="relative h-32 overflow-hidden rounded-lg">
+              {!imageLoaded && !imageError && (
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 text-slate-500 animate-spin" />
                 </div>
               )}
+              
+              {/* Sticker generation overlay */}
+              {stickerGenerating && (
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center backdrop-blur-sm">
+                  <div className="text-center">
+                    <Sparkles className="h-6 w-6 text-purple-600 animate-pulse mx-auto mb-1" />
+                    <p className="text-xs text-purple-700 font-medium">Creating sticker...</p>
+                  </div>
+                </div>
+              )}
+
               <img
-                src={card.aiImageUrl}
+                src={displayImageUrl}
                 alt={card.word}
                 className={`w-full h-full object-cover transition-all duration-500 ${
-                  imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-110'
-                }`}
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                } ${imageError ? 'hidden' : ''}`}
                 onLoad={() => setImageLoaded(true)}
-                onError={() => setImageLoaded(true)}
+                onError={() => {
+                  setImageError(true);
+                  setImageLoaded(false);
+                }}
               />
+              
+              {imageError && (
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center">
+                  <div className="text-center text-slate-600">
+                    <div className="text-2xl mb-1">📷</div>
+                    <div className="text-xs">Image not available</div>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Word and translation */}
@@ -144,14 +214,16 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
             
             {/* Action buttons */}
             <div className="flex items-center justify-between">
-              <AudioButton
-                text={card.word}
-                language={card.language}
-                size="sm"
-                variant="secondary"
-                showFlag={true}
-                showText={false}
-              />
+              {showAudioButton && (
+                <AudioButton
+                  text={card.word}
+                  language={card.language}
+                  size="sm"
+                  variant="secondary"
+                  showFlag={true}
+                  showText={false}
+                />
+              )}
               
               {showCollectButton && !isCollected && (
                 <button

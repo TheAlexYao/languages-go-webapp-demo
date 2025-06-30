@@ -13,6 +13,7 @@ import { TabNavigation } from './components/Layout/TabNavigation';
 import { PoweredByBolt } from './components/Layout/PoweredByBolt';
 import { InstallPrompt } from './components/InstallPrompt';
 import { AuthScreen } from './components/Auth/AuthScreen';
+import { StickerStatusIndicator } from './components/UI/StickerStatusIndicator';
 import { useCardCollection } from './hooks/useCardCollection';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useMobileDetection } from './hooks/useMobileDetection';
@@ -649,6 +650,9 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Global sticker generation status */}
+      <StickerStatusIndicator />
 
       {/* Powered by Bolt Logo */}
       <PoweredByBolt />

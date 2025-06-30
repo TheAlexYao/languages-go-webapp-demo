@@ -573,12 +573,22 @@ export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
       .select(`
         card_id,
         collected_at,
+        mastery_level,
+        review_count,
+        last_reviewed,
         vocabulary_cards (
           id,
           word,
           translation,
           language_detected,
           difficulty,
+          rarity,
+          category,
+          ai_image_url,
+          ai_prompt,
+          pronunciation,
+          example_sentence,
+          pin_id,
           wcache_id
         )
       `)
@@ -613,49 +623,61 @@ export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
     // Transform the data to match our VocabularyCard type
     const transformedCards = data.map((row: any) => {
       const card = row.vocabulary_cards;
+      const collection = row;
       
-      // Get rarity, category, and translations from master vocab lookup, with fallbacks
+      // Use database fields first, with master vocab and fallbacks
       const masterInfo = masterVocabMap.get(card.word);
-      const rarity = masterInfo?.rarity || determineRarity(card.difficulty || 1);
-      const category = masterInfo?.category || guessCategory(card.word);
+      
+      // Priority: DB field → Master vocab → Fallback calculation
+      const rarity = card.rarity || masterInfo?.rarity || determineRarity(card.difficulty || 1);
+      const category = card.category || masterInfo?.category || guessCategory(card.word);
       const translations = masterInfo?.translations || {};
 
-      // Determine the display language and word
+      // Language detection with improved logic
       let displayWord = card.word;
       let displayTranslation = card.translation;
-      let language = 'en';
+      let language = card.language_detected || 'en';
 
-      // First, try to detect language from existing translation
-      if (card.translation) {
-        language = detectLanguage(card.translation);
-        if (language !== 'en') {
-          // If translation is in a foreign language, use it as the main word
-          displayWord = card.translation;
-          displayTranslation = card.word; // English word becomes translation
+      // If language is explicitly set in DB and not 'en', use as-is
+      if (language && language !== 'en') {
+        displayWord = card.word;
+        displayTranslation = card.translation || displayWord;
+      } else {
+        // Detect language if not set or is English
+        // First, try to detect language from existing translation
+        if (card.translation) {
+          const detectedLang = detectLanguage(card.translation);
+          if (detectedLang !== 'en') {
+            // If translation is in a foreign language, use it as the main word
+            displayWord = card.translation;
+            displayTranslation = card.word; // English word becomes translation
+            language = detectedLang;
+          }
         }
-      }
 
-      // If no foreign language detected, check if we have translations from master vocab
-      if (language === 'en' && translations && Object.keys(translations).length > 0) {
-        // Get the first available non-English translation
-        const availableLanguages = Object.keys(translations).filter(lang => lang !== 'en');
-        if (availableLanguages.length > 0) {
-          // Prefer Spanish, then French, then German, then others
-          const preferredOrder = ['es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'];
-          const preferredLang = preferredOrder.find(lang => translations[lang]) || availableLanguages[0];
-          
-          displayWord = translations[preferredLang];
-          displayTranslation = card.word; // English word becomes translation
-          language = preferredLang;
+        // If no foreign language detected, check if we have translations from master vocab
+        if (language === 'en' && translations && Object.keys(translations).length > 0) {
+          // Get the first available non-English translation
+          const availableLanguages = Object.keys(translations).filter(lang => lang !== 'en');
+          if (availableLanguages.length > 0) {
+            // Prefer Spanish, then French, then German, then others
+            const preferredOrder = ['es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'];
+            const preferredLang = preferredOrder.find(lang => translations[lang]) || availableLanguages[0];
+            
+            displayWord = translations[preferredLang];
+            displayTranslation = card.word; // English word becomes translation
+            language = preferredLang;
+          }
         }
-      }
 
-      // If still English, try to detect from the word itself
-      if (language === 'en') {
-        language = detectLanguage(card.word);
-        if (language !== 'en') {
-          // Word is in foreign language, translation should be English
-          displayTranslation = card.translation || card.word;
+        // If still English, try to detect from the word itself
+        if (language === 'en') {
+          const detectedLang = detectLanguage(card.word);
+          if (detectedLang !== 'en') {
+            // Word is in foreign language, translation should be English
+            language = detectedLang;
+            displayTranslation = card.translation || card.word;
+          }
         }
       }
 
@@ -665,12 +687,18 @@ export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
         translation: displayTranslation || displayWord,
         language,
         difficulty: card.difficulty || 1,
-        aiImageUrl: '', // Not stored in vocabulary_cards
-        aiPrompt: '', // Not stored in vocabulary_cards
-        pinId: card.wcache_id || '',
-        collectedAt: new Date(row.collected_at),
         rarity,
-        category
+        category,
+        aiImageUrl: card.ai_image_url || '', // Now from database
+        aiPrompt: card.ai_prompt || '', // Now from database
+        pronunciation: card.pronunciation || undefined,
+        exampleSentence: card.example_sentence || undefined,
+        pinId: card.pin_id || card.wcache_id?.toString() || '', // Use new pin_id field
+        collectedAt: new Date(collection.collected_at),
+        // Additional collection metadata
+        masteryLevel: collection.mastery_level,
+        reviewCount: collection.review_count,
+        lastReviewed: collection.last_reviewed ? new Date(collection.last_reviewed) : undefined
       };
     });
     
@@ -702,8 +730,8 @@ export const collectCard = async (card: VocabularyCard): Promise<void> => {
     let cardId: number;
 
     if (checkError || !existingCard) {
-      // Card doesn't exist, insert it first
-      console.log('📝 Inserting new vocabulary card:', card.word);
+      // Card doesn't exist, insert it first with all fields
+      console.log('📝 Inserting new vocabulary card:', card.word, 'in', card.language);
       const { data: insertedCard, error: insertError } = await supabase
         .from('vocabulary_cards')
         .insert({
@@ -711,19 +739,34 @@ export const collectCard = async (card: VocabularyCard): Promise<void> => {
           translation: card.translation,
           language_detected: card.language,
           difficulty: card.difficulty,
-          wcache_id: parseInt(card.pinId) || null // Convert pinId to number or null
+          rarity: card.rarity,
+          category: card.category,
+          ai_image_url: card.aiImageUrl || null,
+          ai_prompt: card.aiPrompt || null,
+          pronunciation: card.pronunciation || null,
+          example_sentence: card.exampleSentence || null,
+          pin_id: card.pinId, // Use new text field instead of converting to int
+          wcache_id: null // Keep legacy field as null for new cards
         })
         .select('id')
         .single();
 
       if (insertError) {
         console.error('Error inserting vocabulary card:', insertError);
+        console.error('Card data:', {
+          word: card.word,
+          language: card.language,
+          rarity: card.rarity,
+          category: card.category
+        });
         throw insertError;
       }
 
       cardId = insertedCard.id;
+      console.log('✅ Successfully inserted card with ID:', cardId);
     } else {
       cardId = existingCard.id;
+      console.log('📋 Using existing card with ID:', cardId);
     }
 
     // Check if user already has this card in their collection

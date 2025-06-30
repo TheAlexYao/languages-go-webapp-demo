@@ -2,6 +2,7 @@ import React from 'react';
 import { X, BookOpen, MapPin, Calendar, Star, Trophy } from 'lucide-react';
 import { VocabularyCard } from '../../types/vocabulary';
 import { AudioButton } from '../UI/AudioButton';
+import { getStickerUrl } from '../../services/stickers/stickerIntegration';
 
 interface CardModalProps {
   card: VocabularyCard;
@@ -41,13 +42,13 @@ export const CardModal: React.FC<CardModalProps> = ({ card, onClose }) => {
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* AI Generated Image */}
+          {/* Sticker Image */}
           <div className="flex justify-center">
-            <div className="w-32 h-32 bg-gray-100 rounded-2xl overflow-hidden shadow-lg">
+            <div className="w-32 h-32 bg-white rounded-2xl overflow-hidden shadow-lg border-2 border-gray-100">
               <img
-                src={card.aiImageUrl}
+                src={getStickerUrl(card)}
                 alt={card.word}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-2"
               />
             </div>
           </div>

@@ -18,6 +18,7 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { getMockCommunityData } from './services/mockData';
 import { signInAnonymously, supabase, savePinsLocally, loadPinsLocally, resolvePhotoUrl } from './services/supabase';
+import { initializeStickerGeneration, getStickerUrl } from './services/stickers/stickerIntegration';
 import { VocabularyCard, PhotoPin, CollectionStats } from './types/vocabulary';
 import { Player } from './types/player';
 import { PWAOnboardingScreen } from './components/PWAOnboardingScreen';
@@ -97,6 +98,11 @@ function App() {
     };
 
     checkExistingAuth();
+
+    // Initialize sticker generation for existing vocabulary
+    initializeStickerGeneration().catch(error => {
+      console.error('Failed to initialize sticker generation:', error);
+    });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -547,21 +553,29 @@ function App() {
                       }`}
                     >
                       <div className="flex items-center space-x-4">
-                        <div className={`${isMobile ? 'w-10 h-10' : 'w-12 h-12'} rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 ${
+                        <div className={`${isMobile ? 'w-10 h-10' : 'w-12 h-12'} rounded-xl overflow-hidden shadow-lg transition-all duration-300 bg-white border-2 ${
                           isCollected 
-                            ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
+                            ? 'border-emerald-500' 
                             : showSuccess
-                            ? 'bg-gradient-to-br from-emerald-400 to-green-500 scale-110'
+                            ? 'border-emerald-400 scale-110'
                             : isCollecting
-                            ? 'bg-gradient-to-br from-blue-400 to-purple-500 animate-pulse'
-                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                            ? 'border-blue-400 animate-pulse'
+                            : 'border-gray-300'
                         }`}>
                           {isCollected || showSuccess ? (
-                            <span className="text-white font-bold text-lg">✓</span>
+                            <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                              <span className="text-white font-bold text-lg">✓</span>
+                            </div>
                           ) : isCollecting ? (
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            </div>
                           ) : (
-                            <span className="text-white font-bold text-lg">{card.word[0].toUpperCase()}</span>
+                            <img
+                              src={getStickerUrl(card)}
+                              alt={card.word}
+                              className="w-full h-full object-contain p-1"
+                            />
                           )}
                         </div>
                         <div>

@@ -8,6 +8,7 @@ interface RequestBody {
     latitude: number;
     longitude: number;
   };
+  target_language?: string; // Optional target language (default: 'es')
 }
 
 interface VocabularyCard {
@@ -98,10 +99,10 @@ Only return the comma-separated list, nothing else.`;
   }
 }
 
-async function findVocabularyMatches(keywords: string[]): Promise<VocabularyCard[]> {
+async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage: string = 'es'): Promise<VocabularyCard[]> {
   try {
-    // Use ILIKE for case-insensitive matching against any of the keywords
-    const { data, error } = await supabase
+    // First, find existing matches
+    const { data: existingCards, error } = await supabase
       .from('master_vocabulary')
       .select('*')
       .or(keywords.map(keyword => `word.ilike.%${keyword}%`).join(','));
@@ -110,10 +111,136 @@ async function findVocabularyMatches(keywords: string[]): Promise<VocabularyCard
       throw new Error(`Database query error: ${error.message}`);
     }
 
-    return data || [];
+    const foundWords = new Set(
+      (existingCards || []).map(card => card.word.toLowerCase())
+    );
+    
+    // Find keywords that don't have cards yet
+    const missingKeywords = keywords.filter(
+      keyword => !foundWords.has(keyword.toLowerCase())
+    );
+
+    // If all keywords are found, return existing cards
+    if (missingKeywords.length === 0) {
+      return existingCards || [];
+    }
+
+    // Generate new cards for missing keywords
+    console.log(`🆕 Creating cards for new words: ${missingKeywords.join(', ')}`);
+    
+    const newCards = await generateNewVocabularyCards(missingKeywords, targetLanguage);
+    
+    // Insert new cards into the database
+    if (newCards.length > 0) {
+      const { data: insertedCards, error: insertError } = await supabase
+        .from('master_vocabulary')
+        .insert(newCards.map(card => ({
+          word: card.word,
+          translation: card.translation,
+          category: card.category,
+          difficulty: parseInt(card.difficulty),
+          rarity: card.rarity,
+          language_detected: targetLanguage,
+          created_by_ai: true // Flag to indicate AI-generated
+        })))
+        .select('*');
+
+      if (insertError) {
+        console.error('Failed to insert new cards:', insertError);
+        // Continue with existing cards even if insert fails
+        return existingCards || [];
+      } else {
+        // Combine existing and new cards
+        const allCards = [...(existingCards || []), ...(insertedCards || [])];
+        return allCards;
+      }
+    }
+
+    return existingCards || [];
   } catch (error) {
     console.error('Database error:', error);
-    throw new Error(`Failed to query vocabulary: ${error.message}`);
+    throw new Error(`Failed to query/create vocabulary: ${error.message}`);
+  }
+}
+
+async function generateNewVocabularyCards(
+  keywords: string[], 
+  targetLanguage: string
+): Promise<Partial<VocabularyCard>[]> {
+  if (!GEMINI_API_KEY) {
+    console.warn('Gemini API key not available for generating new cards');
+    return [];
+  }
+
+  const prompt = `For each of these English words, provide:
+1. Translation to ${targetLanguage}
+2. Category (animal, food, object, nature, building, person, vehicle, clothing, etc.)
+3. Difficulty (1=easy common word, 2=medium, 3=hard/uncommon)
+4. Rarity for game purposes (common, rare, epic)
+
+Words: ${keywords.join(', ')}
+
+Return ONLY a JSON array with this exact format, no other text:
+[{"word": "cat", "translation": "gato", "category": "animal", "difficulty": "1", "rarity": "common"}]`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: prompt }]
+          }],
+          generationConfig: {
+            temperature: 0.3,
+            candidateCount: 1
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!jsonText) {
+      console.error('No response text from Gemini');
+      return [];
+    }
+
+    try {
+      // Extract JSON from the response (in case there's extra text)
+      const jsonMatch = jsonText.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        console.error('No JSON array found in response:', jsonText);
+        return [];
+      }
+
+      const cards = JSON.parse(jsonMatch[0]);
+      
+      // Generate unique IDs for the cards
+      return cards.map(card => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        word: card.word,
+        translation: card.translation,
+        category: card.category || 'object',
+        difficulty: String(card.difficulty || 1),
+        rarity: card.rarity || 'common',
+        base_image_url: '' // Will be generated later by sticker system
+      }));
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response:', parseError, jsonText);
+      return [];
+    }
+    
+  } catch (error) {
+    console.error('Failed to generate new cards:', error);
+    return [];
   }
 }
 
@@ -214,10 +341,11 @@ Deno.serve(async (req: Request) => {
     const keywords = await analyzeImageWithGemini(body.image_data);
     console.log('📝 Keywords found:', keywords);
 
-    // Step 2: Find matching vocabulary cards
-    console.log('🔍 Finding vocabulary matches...');
-    const vocabularyCards = await findVocabularyMatches(keywords);
-    console.log(`📚 Vocabulary matches found: ${vocabularyCards.length}`);
+    // Step 2: Find or create vocabulary cards
+    const targetLanguage = body.target_language || 'es';
+    console.log(`🔍 Finding/creating vocabulary for language: ${targetLanguage}...`);
+    const vocabularyCards = await findOrCreateVocabularyMatches(keywords, targetLanguage);
+    console.log(`📚 Total vocabulary cards: ${vocabularyCards.length}`);
 
     // Step 3: Create map pin (only if user is authenticated)
     let pinId = `temp_pin_${Date.now()}`;

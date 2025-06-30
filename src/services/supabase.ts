@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { VocabularyCard, PhotoPin } from '../types/vocabulary';
 import { Location } from '../types/location';
 import { shouldUseRealAPI, debugLog, API_CONFIG, IS_DEVELOPMENT, DEV_MODE_CONFIG, AUTH_CONFIG } from './config';
+import { processNewVocabularyForStickers } from './stickers/stickerIntegration';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -366,7 +367,7 @@ export const findCardsFromPhoto = async (
           latitude: location.lat,
           longitude: location.lng
         },
-        user_language: userLanguage
+        target_language: userLanguage
       }
     });
 
@@ -416,6 +417,13 @@ export const findCardsFromPhoto = async (
     savePinsLocally(existingPins);
 
     debugLog(`✅ Found ${vocabularyCards.length} vocabulary matches from keywords: ${data.keywords_found?.join(', ') || 'none'}`);
+
+    // Queue new vocabulary cards for sticker generation
+    if (vocabularyCards.length > 0) {
+      processNewVocabularyForStickers(vocabularyCards).catch(error => {
+        console.error('Failed to queue stickers:', error);
+      });
+    }
 
     return { cards: vocabularyCards, pin: photoPin };
   } catch (error) {
@@ -512,14 +520,15 @@ export const collectCard = async (card: VocabularyCard): Promise<void> => {
       return;
     }
 
-    // First, ensure the card exists in vocabulary_cards table
+    // First, check if a card with the same word and language already exists
     const { data: existingCard, error: checkError } = await supabase
       .from('vocabulary_cards')
       .select('id')
-      .eq('id', card.id)
+      .eq('word', card.word)
+      .eq('language_detected', card.language)
       .single();
 
-    let cardId = card.id;
+    let cardId: number;
 
     if (checkError || !existingCard) {
       // Card doesn't exist, insert it first
@@ -531,7 +540,7 @@ export const collectCard = async (card: VocabularyCard): Promise<void> => {
           translation: card.translation,
           language_detected: card.language,
           difficulty: card.difficulty,
-          wcache_id: card.pinId
+          wcache_id: parseInt(card.pinId) || null // Convert pinId to number or null
         })
         .select('id')
         .single();
@@ -542,6 +551,21 @@ export const collectCard = async (card: VocabularyCard): Promise<void> => {
       }
 
       cardId = insertedCard.id;
+    } else {
+      cardId = existingCard.id;
+    }
+
+    // Check if user already has this card in their collection
+    const { data: existingCollection, error: collectionCheckError } = await supabase
+      .from('user_collections')
+      .select('card_id')
+      .eq('user_id', user.id)
+      .eq('card_id', cardId)
+      .single();
+
+    if (existingCollection) {
+      console.log('⚠️ Card already in user collection:', card.word);
+      return; // Card already collected, no need to add again
     }
 
     // Now add to user's collection

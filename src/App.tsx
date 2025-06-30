@@ -228,16 +228,7 @@ function App() {
     setPermissionState('denied');
   };
 
-  const handlePWAInstall = () => {
-    console.log('🎉 PWA installed successfully');
-    setPwaState('completed');
-  };
 
-  const handlePWASkip = () => {
-    console.log('⏭️ PWA onboarding skipped');
-    pwaManager.skipOnboarding(); // Mark as dismissed in PWA manager
-    setPwaState('completed');
-  };
 
   const handleCardsGenerated = (cards: VocabularyCard[], pin: PhotoPin) => {
     console.log('🎯 Cards generated:', { cards: cards.length, pin: pin.id });
@@ -354,25 +345,25 @@ function App() {
   };
 
   // Debug: Log current state
-  console.log('🐛 App render state:', { authState, permissionState, collectionLoading, pwaState });
+  console.log('🐛 App render state:', { authState, permissionState, collectionLoading });
 
   // Debug render state
   console.log('🎨 App render state:', { 
     authState, 
     permissionState, 
     collectionLoading,
-    pwaState,
     collectedCardsCount: collectedCards.length
   });
 
   // Show loading screen until authentication and permissions are resolved
-  if (authState === 'loading' || permissionState === 'loading' || collectionLoading || pwaState === 'checking') {
-    console.log('⏳ Loading state:', { authState, permissionState, collectionLoading, pwaState });
+  if (authState === 'loading' || permissionState === 'loading' || collectionLoading) {
+    console.log('⏳ Loading state:', { authState, permissionState, collectionLoading });
     return (
       <LoadingScreen
         onPermissionGranted={handlePermissionGranted}
         onPermissionDenied={handlePermissionDenied}
         isPWA={isPWA}
+        onLocationRequest={getCurrentLocation}
       />
     );
   }
@@ -389,17 +380,7 @@ function App() {
     );
   }
 
-  // Show PWA onboarding after permissions are granted but before main app
-  if (pwaState === 'show-onboarding') {
-    console.log('📱 Showing PWA onboarding screen');
-    return (
-      <PWAOnboardingScreen
-        onInstall={handlePWAInstall}
-        onSkip={handlePWASkip}
-        isMobile={isMobile}
-      />
-    );
-  }
+
 
   // Show authentication error state
   if (authState === 'error') {
@@ -536,6 +517,9 @@ function App() {
         onTabChange={setCurrentTab}
         isMobile={isMobile}
       />
+
+      {/* iOS PWA Install Prompt */}
+      <A2HSIosPrompt />
 
       {/* Card Modal */}
       {selectedCard && (

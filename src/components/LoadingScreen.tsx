@@ -8,12 +8,14 @@ interface LoadingScreenProps {
   onPermissionGranted: () => void;
   onPermissionDenied: () => void;
   isPWA?: boolean;
+  onLocationRequest: () => Promise<any>;
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   onPermissionGranted,
   onPermissionDenied,
   isPWA = false,
+  onLocationRequest,
 }) => {
   const [step, setStep] = useState<PermissionStep>('intro');
   const [isRequesting, setIsRequesting] = useState(false);
@@ -23,32 +25,14 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   const requestLocationPermission = async () => {
     setIsRequesting(true);
-    if (!navigator.geolocation) {
-      console.warn('Geolocation not supported, skipping.');
-      setStep('complete');
-      return;
-    }
-
     try {
-      await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log('Location permission granted:', position.coords);
-            resolve(position);
-          },
-          (error) => {
-            console.warn('Location permission denied, continuing.', error.message);
-            // Don't reject, just resolve to continue the flow
-            resolve(null);
-          },
-          { timeout: 10000, enableHighAccuracy: true }
-        );
-      });
+      await onLocationRequest();
     } catch (error) {
-       console.error('Error requesting location:', error);
+      // The hook already handles errors and sets a default, so we can just log here
+      console.warn('Location request hook finished with an error state, continuing flow.', error);
     } finally {
-       setStep('complete');
-       setIsRequesting(false);
+      setStep('complete');
+      setIsRequesting(false);
     }
   };
 

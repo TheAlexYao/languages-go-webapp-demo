@@ -479,6 +479,7 @@ function App() {
               cards={collectedCards}
               stats={currentStats}
               onCardClick={setSelectedCard}
+              targetLanguage={selectedLanguage}
             />
           </div>
         )}
@@ -515,6 +516,7 @@ function App() {
         <CardModal
           card={selectedCard}
           onClose={() => setSelectedCard(null)}
+          selectedLanguage={selectedLanguage}
         />
       )}
 

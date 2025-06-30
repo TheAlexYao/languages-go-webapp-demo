@@ -6,9 +6,10 @@ import { AudioButton } from '../UI/AudioButton';
 interface CardModalProps {
   card: VocabularyCard;
   onClose: () => void;
+  selectedLanguage?: string;
 }
 
-export const CardModal: React.FC<CardModalProps> = ({ card, onClose }) => {
+export const CardModal: React.FC<CardModalProps> = ({ card, onClose, selectedLanguage = 'es' }) => {
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
       case 'epic': return 'from-purple-500 to-pink-500';
@@ -84,8 +85,8 @@ export const CardModal: React.FC<CardModalProps> = ({ card, onClose }) => {
                   Pronunciation
                 </h3>
                 <AudioButton
-                  text={card.word}
-                  language={card.language}
+                  text={card.translation}
+                  language={selectedLanguage}
                   size="md"
                   variant="primary"
                   showFlag={true}

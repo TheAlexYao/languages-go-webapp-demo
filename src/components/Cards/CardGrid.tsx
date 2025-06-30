@@ -9,6 +9,7 @@ interface CardGridProps {
   stats: CollectionStats;
   onCardClick?: (card: VocabularyCardType) => void;
   className?: string;
+  targetLanguage?: string;
 }
 
 type SortOption = 'newest' | 'oldest' | 'alphabetical' | 'difficulty' | 'rarity';
@@ -18,7 +19,8 @@ export const CardGrid: React.FC<CardGridProps> = ({
   cards,
   stats,
   onCardClick,
-  className = ''
+  className = '',
+  targetLanguage = 'es'
 }) => {
   const { isMobile } = useMobileDetection();
   const [searchTerm, setSearchTerm] = useState('');
@@ -374,6 +376,7 @@ export const CardGrid: React.FC<CardGridProps> = ({
                 card={card}
                 onClick={() => onCardClick?.(card)}
                 className="hover:scale-105 transition-transform duration-200"
+                selectedLanguage={targetLanguage}
               />
             ))}
           </div>

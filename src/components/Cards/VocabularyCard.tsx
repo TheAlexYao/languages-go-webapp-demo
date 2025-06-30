@@ -11,6 +11,7 @@ interface VocabularyCardProps {
   onClick?: () => void;
   className?: string;
   showAudioButton?: boolean;
+  selectedLanguage?: string;
 }
 
 // Simple placeholder generator for cards without images
@@ -42,7 +43,8 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
   showCollectButton = false,
   onClick,
   className = '',
-  showAudioButton = true
+  showAudioButton = true,
+  selectedLanguage = 'es'
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -193,8 +195,8 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
             <div className="flex items-center justify-between">
               {showAudioButton && (
                 <AudioButton
-                  text={card.word}
-                  language={card.language}
+                  text={card.translation}
+                  language={selectedLanguage}
                   size="sm"
                   variant="secondary"
                   showFlag={true}
@@ -250,7 +252,7 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
                     </h4>
                     <AudioButton
                       text={card.word}
-                      language={card.language}
+                      language={selectedLanguage}
                       size="sm"
                       variant="minimal"
                       showFlag={false}

@@ -256,11 +256,10 @@ async function generateStickersForAllWords() {
   }
   
   try {
-    // Get all vocabulary cards without stickers
-    const { data: cards, error } = await supabase
+    // Get all vocabulary cards and filter for ones without proper stickers
+    const { data: allCards, error } = await supabase
       .from('vocabulary_cards')
       .select('*')
-      .or('ai_image_url.is.null,ai_image_url.eq.')
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -268,8 +267,35 @@ async function generateStickersForAllWords() {
       return;
     }
     
-    if (!cards || cards.length === 0) {
-      console.log('✅ All cards already have stickers!');
+    if (!allCards || allCards.length === 0) {
+      console.log('❌ No cards found in database!');
+      return;
+    }
+    
+    // Debug: Show sample URLs
+    console.log('\n🔍 Sample card URLs:');
+    allCards.slice(0, 5).forEach(card => {
+      console.log(`  "${card.word}": ${card.ai_image_url || 'NULL'}`);
+    });
+    
+    // Filter cards that need stickers (null, empty, or Unsplash URLs)
+    const cards = allCards.filter(card => {
+      const hasNoUrl = !card.ai_image_url || card.ai_image_url.trim() === '';
+      const hasUnsplashUrl = card.ai_image_url && card.ai_image_url.includes('unsplash');
+      
+      // Debug logging for first few cards
+      if (allCards.indexOf(card) < 5) {
+        console.log(`  Debug "${card.word}": hasNoUrl=${hasNoUrl}, hasUnsplashUrl=${hasUnsplashUrl}, url="${card.ai_image_url}"`);
+      }
+      
+      return hasNoUrl || hasUnsplashUrl;
+    });
+    
+    console.log(`\n📊 Total cards in database: ${allCards.length}`);
+    console.log(`🎯 Cards needing stickers: ${cards.length}`);
+    
+    if (cards.length === 0) {
+      console.log('✅ All cards already have proper stickers!');
       return;
     }
     

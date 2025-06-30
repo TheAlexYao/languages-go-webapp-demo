@@ -56,25 +56,12 @@ export const needsSticker = (card: VocabularyCard): boolean => {
 
 // Get sticker URL for a card (with fallback)
 export const getStickerUrl = (card: VocabularyCard): string => {
-  console.log(`🎨 getStickerUrl DEBUG for "${card.word}":`, {
-    word: card.word,
-    translation: card.translation,
-    aiImageUrl: card.aiImageUrl,
-    cardId: card.id,
-    hasImageUrl: !!card.aiImageUrl,
-    urlLength: card.aiImageUrl?.length || 0,
-    containsStickers: card.aiImageUrl?.includes('stickers') || false,
-    containsSupabase: card.aiImageUrl?.includes('supabase') || false
-  });
-  
   // If card has any valid image URL, use it
   if (card.aiImageUrl && card.aiImageUrl.length > 0) {
-    console.log(`✅ Using stored image URL for "${card.word}": ${card.aiImageUrl}`);
     return card.aiImageUrl;
   }
   
   // Generate a placeholder sticker URL based on the word
-  console.log(`📝 No sticker URL found for "${card.word}", using placeholder`);
   return generatePlaceholderSticker(card);
 };
 

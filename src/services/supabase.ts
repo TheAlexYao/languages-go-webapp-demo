@@ -321,11 +321,7 @@ export const findCardsFromPhoto = async (
         translation: wordSet.en, // English translation
         language: userLanguage,
         difficulty: (index % 3 + 1) as 1 | 2 | 3,
-        aiImageUrl: index === 0 
-          ? 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=400&fit=crop'
-          : index === 1 
-          ? 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=400&fit=crop'
-          : 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=400&h=400&fit=crop',
+        aiImageUrl: '', // Let sticker system handle empty URLs
         aiPrompt: `A ${wordSet.en} in the real world`,
         pinId: pinId,
         rarity: index === 2 ? 'rare' as const : 'common' as const,
@@ -388,7 +384,7 @@ export const findCardsFromPhoto = async (
       translation: card.translation,
       language: card.language || API_CONFIG.DEFAULT_LANGUAGE,
       difficulty: card.difficulty,
-      aiImageUrl: card.base_image_url || `https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop`,
+      aiImageUrl: card.base_image_url || '', // Let sticker system handle empty URLs
       aiPrompt: `A ${card.word} in the real world`,
       pinId: pinId,
       rarity: card.rarity,

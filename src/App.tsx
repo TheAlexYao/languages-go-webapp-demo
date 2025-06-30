@@ -449,7 +449,7 @@ function App() {
       {/* Main Content */}
       <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-20' : 'pb-24'}`}>
         {currentTab === 'camera' && (
-          <div className={`h-full ${isMobile ? 'p-4' : 'p-6'}`}>
+          <div className={`${isMobile ? 'h-[calc(100%-5rem)] p-4' : 'h-[calc(100%-6rem)] p-6'}`}>
             <PhotoCapture
               onCardsGenerated={handleCardsGenerated}
               isEnabled={authState === 'authenticated'}
@@ -463,7 +463,7 @@ function App() {
         )}
 
         {currentTab === 'map' && (
-          <div className="h-full relative">
+          <div className={`${isMobile ? 'h-[calc(100%-5rem)]' : 'h-[calc(100%-6rem)]'} relative`}>
             <GameMap
               pins={pins}
               currentLocation={location}

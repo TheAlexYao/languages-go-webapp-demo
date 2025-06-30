@@ -447,7 +447,7 @@ function App() {
       />
 
       {/* Main Content */}
-      <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-20' : ''}`}>
+      <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-20' : 'pb-24'}`}>
         {currentTab === 'camera' && (
           <div className={`h-full ${isMobile ? 'p-4' : 'p-6'}`}>
             <PhotoCapture

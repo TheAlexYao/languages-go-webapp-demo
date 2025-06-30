@@ -19,7 +19,7 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { getMockCommunityData } from './services/mockData';
 import { signInAnonymously, supabase, savePinsLocally, loadPinsLocally, resolvePhotoUrl } from './services/supabase';
-import { initializeStickerGeneration, getStickerUrl } from './services/stickers/stickerIntegration';
+import { initializeStickerGeneration, getStickerUrl, processNewVocabularyForStickers } from './services/stickers/stickerIntegration';
 import { VocabularyCard, PhotoPin, CollectionStats } from './types/vocabulary';
 import { Player } from './types/player';
 import { PWAOnboardingScreen } from './components/PWAOnboardingScreen';
@@ -163,6 +163,59 @@ function App() {
       console.log('💾 Saved pins to local storage:', pins.length);
     }
   }, [pins]);
+
+  // Function to refresh vocabulary card data with latest sticker URLs from database
+  const refreshVocabularyCardData = async () => {
+    try {
+      // Refresh all pins with latest vocabulary card data
+      const updatedPins = await Promise.all(
+        pins.map(async (pin) => {
+          // Get fresh vocabulary card data from the database
+          const freshCards = await Promise.all(
+            pin.cards.map(async (card) => {
+              try {
+                // Query the database for this specific card's latest data
+                const { data, error } = await supabase
+                  .from('vocabulary_cards')
+                  .select('ai_image_url')
+                  .eq('word', card.word)
+                  .eq('language_detected', card.language)
+                  .single();
+
+                if (data && data.ai_image_url) {
+                  return {
+                    ...card,
+                    aiImageUrl: data.ai_image_url
+                  };
+                }
+                return card;
+              } catch (error) {
+                console.warn(`Could not refresh card "${card.word}":`, error);
+                return card;
+              }
+            })
+          );
+
+          return {
+            ...pin,
+            cards: freshCards
+          };
+        })
+      );
+
+      setPins(updatedPins);
+      console.log('🔄 Refreshed vocabulary card data with latest sticker URLs');
+    } catch (error) {
+      console.error('Error refreshing vocabulary card data:', error);
+    }
+  };
+
+  // Call refresh function when app loads
+  useEffect(() => {
+    if (pins.length > 0) {
+      refreshVocabularyCardData();
+    }
+  }, []); // Only run once when component mounts
 
   const handlePermissionGranted = () => {
     setPermissionState('granted');

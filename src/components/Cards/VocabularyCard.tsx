@@ -27,18 +27,20 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [stickerGenerating, setStickerGenerating] = useState(false);
-  const [currentImageUrl, setCurrentImageUrl] = useState(card.aiImageUrl);
+  const [currentImageUrl, setCurrentImageUrl] = useState(getStickerUrl(card));
 
-  // Check if sticker is being generated
+  // Update image URL when card data changes
   useEffect(() => {
+    const newImageUrl = getStickerUrl(card);
+    setCurrentImageUrl(newImageUrl);
+    
+    // Check if we need to generate a sticker
     if (needsSticker(card)) {
       setStickerGenerating(true);
       
       // Poll for sticker completion (simplified - in production you'd use websockets or polling)
       const checkSticker = setInterval(async () => {
         try {
-          // In a real implementation, you'd check the sticker job status
-          // For now, we'll just use the getStickerUrl function
           const stickerUrl = getStickerUrl(card);
           if (stickerUrl !== currentImageUrl && !stickerUrl.startsWith('data:image/svg')) {
             setCurrentImageUrl(stickerUrl);
@@ -57,8 +59,10 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
       }, 120000);
 
       return () => clearInterval(checkSticker);
+    } else {
+      setStickerGenerating(false);
     }
-  }, [card, currentImageUrl]);
+  }, [card.aiImageUrl, card.word]); // React to changes in the card's image URL
 
   const getRarityGradient = (rarity: string) => {
     switch (rarity) {

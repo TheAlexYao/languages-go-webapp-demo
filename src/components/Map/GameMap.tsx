@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import L, { divIcon } from 'leaflet';
 import { MapPin, Users, Target } from 'lucide-react';
 import { PhotoPin } from '../../types/vocabulary';
 import { Location } from '../../types/location';
@@ -112,6 +112,81 @@ const MapController: React.FC<{ center: [number, number] }> = ({ center }) => {
   return null;
 };
 
+// Helper function to calculate distance between two points
+const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lng2-lng1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+};
+
+// Cluster pins that are close together
+const clusterPins = (pins: PhotoPin[], clusterRadius: number = 50): Array<{
+  id: string;
+  lat: number;
+  lng: number;
+  pins: PhotoPin[];
+  isCluster: boolean;
+}> => {
+  const clusters: Array<{
+    id: string;
+    lat: number;
+    lng: number;
+    pins: PhotoPin[];
+    isCluster: boolean;
+  }> = [];
+  
+  const processedPins = new Set<string>();
+
+  pins.forEach(pin => {
+    if (processedPins.has(pin.id)) return;
+
+    const nearbyPins = pins.filter(otherPin => {
+      if (otherPin.id === pin.id || processedPins.has(otherPin.id)) return false;
+      const distance = getDistance(pin.lat, pin.lng, otherPin.lat, otherPin.lng);
+      return distance <= clusterRadius;
+    });
+
+    if (nearbyPins.length > 0) {
+      // Create cluster
+      const allPins = [pin, ...nearbyPins];
+      const centerLat = allPins.reduce((sum, p) => sum + p.lat, 0) / allPins.length;
+      const centerLng = allPins.reduce((sum, p) => sum + p.lng, 0) / allPins.length;
+      
+      clusters.push({
+        id: `cluster-${pin.id}`,
+        lat: centerLat,
+        lng: centerLng,
+        pins: allPins,
+        isCluster: true
+      });
+
+      // Mark all pins as processed
+      allPins.forEach(p => processedPins.add(p.id));
+    } else {
+      // Single pin
+      clusters.push({
+        id: pin.id,
+        lat: pin.lat,
+        lng: pin.lng,
+        pins: [pin],
+        isCluster: false
+      });
+      processedPins.add(pin.id);
+    }
+  });
+
+  return clusters;
+};
+
 export const GameMap: React.FC<GameMapProps> = ({
   pins,
   currentLocation,
@@ -120,6 +195,7 @@ export const GameMap: React.FC<GameMapProps> = ({
 }) => {
   const { isMobile } = useMobileDetection();
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.0060]); // Default to NYC
+  const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
   
   // Update map center when current location changes
   useEffect(() => {
@@ -127,6 +203,25 @@ export const GameMap: React.FC<GameMapProps> = ({
       setMapCenter([currentLocation.lat, currentLocation.lng]);
     }
   }, [currentLocation]);
+
+  // Cluster pins to handle overlapping locations
+  const clusteredPins = useMemo(() => clusterPins(pins), [pins]);
+
+  const handleClusterClick = (cluster: any) => {
+    if (cluster.isCluster && cluster.pins.length > 1) {
+      // Show cluster selection UI
+      setSelectedCluster(cluster.id);
+    } else {
+      // Single pin - open directly
+      onPinClick(cluster.pins[0]);
+      setSelectedCluster(null);
+    }
+  };
+
+  const handlePinSelection = (pin: PhotoPin) => {
+    onPinClick(pin);
+    setSelectedCluster(null);
+  };
 
   const getPinStatus = (pin: PhotoPin): 'new' | 'visited' | 'collected' => {
     if (pin.hasCollectedAll) return 'collected';
@@ -147,7 +242,7 @@ export const GameMap: React.FC<GameMapProps> = ({
   return (
     <div className={`relative ${className}`}>
       <MapContainer
-        center={mapCenter}
+        center={currentLocation ? [currentLocation.lat, currentLocation.lng] : [40.7128, -74.0060]}
         zoom={15}
         className="w-full h-full rounded-2xl overflow-hidden"
         zoomControl={!isMobile}
@@ -178,56 +273,36 @@ export const GameMap: React.FC<GameMapProps> = ({
           </Marker>
         )}
         
-        {/* Photo Pins */}
-        {pins.map((pin) => {
-          console.log('📍 Rendering pin:', pin.id, 'at', pin.lat, pin.lng);
-          return (
-            <Marker
-              key={pin.id}
-              position={[pin.lat, pin.lng]}
-              icon={createPinIcon(getPinStatus(pin))}
-              eventHandlers={{
-                click: () => {
-                  console.log('📌 Pin clicked in map:', pin.id);
-                  onPinClick(pin);
-                }
-              }}
-            >
-              <Popup>
-                <div className="min-w-[200px]">
-                  <img
-                    src={resolvePhotoUrl(pin.photoUrl)}
-                    alt="Photo location"
-                    className="w-full h-24 object-cover rounded-lg mb-2"
-                  />
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">
-                      {pin.cards.length} vocabulary card{pin.cards.length !== 1 ? 's' : ''}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {pin.cards.slice(0, 3).map((card) => (
-                        <span
-                          key={card.id}
-                          className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full"
-                        >
-                          {card.word}
-                        </span>
-                      ))}
-                      {pin.cards.length > 3 && (
-                        <span className="text-xs text-gray-500">
-                          +{pin.cards.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      {new Date(pin.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+        {/* Clustered pin markers */}
+        {clusteredPins.map((cluster) => (
+          <Marker
+            key={cluster.id}
+            position={[cluster.lat, cluster.lng]}
+            eventHandlers={{
+              click: () => handleClusterClick(cluster),
+            }}
+            icon={divIcon({
+              className: 'custom-pin',
+              html: cluster.isCluster 
+                ? `<div class="cluster-pin">
+                     <span class="cluster-count">${cluster.pins.length}</span>
+                     <div class="cluster-ring"></div>
+                   </div>`
+                : `<div class="single-pin">
+                     <div class="pin-icon">📍</div>
+                   </div>`,
+              iconSize: cluster.isCluster ? [40, 40] : [30, 30],
+              iconAnchor: cluster.isCluster ? [20, 20] : [15, 15],
+            })}
+          >
+            <Popup>
+              {cluster.isCluster 
+                ? `${cluster.pins.length} vocabulary discoveries at this location`
+                : `${cluster.pins[0].cards.length} vocabulary cards discovered`
+              }
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
       
       {/* Map Legend */}
@@ -283,6 +358,111 @@ export const GameMap: React.FC<GameMapProps> = ({
           </div>
         </div>
       )}
+
+      {/* Cluster selection modal */}
+      {selectedCluster && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full max-h-[70vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-800">Select Discovery</h3>
+                <button
+                  onClick={() => setSelectedCluster(null)}
+                  className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {clusteredPins
+                  .find(c => c.id === selectedCluster)
+                  ?.pins.map((pin, index) => (
+                    <button
+                      key={pin.id}
+                      onClick={() => handlePinSelection(pin)}
+                      className="w-full p-4 text-left bg-gradient-to-r from-gray-50 to-gray-100 hover:from-blue-50 hover:to-purple-50 rounded-2xl border border-gray-200 hover:border-blue-200 transition-all duration-200"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-800">
+                            Discovery #{index + 1}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {pin.cards.length} vocabulary {pin.cards.length === 1 ? 'word' : 'words'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(pin.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add CSS for custom pin styles */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .cluster-pin {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border: 3px solid white;
+          }
+          
+          .cluster-count {
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+          }
+          
+          .cluster-ring {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: 2px solid #3B82F6;
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: pulse 2s infinite;
+          }
+          
+          .single-pin {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #10B981, #059669);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            border: 2px solid white;
+          }
+          
+          .pin-icon {
+            font-size: 16px;
+          }
+          
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.3; }
+            100% { transform: scale(1); opacity: 0.5; }
+          }
+        `
+      }} />
     </div>
   );
 };

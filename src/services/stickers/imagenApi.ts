@@ -13,132 +13,38 @@ export interface StickerGenerationResult {
   stickerId?: string;
 }
 
-// Generate sticker using Gemini 2.0 Flash
+// Generate sticker using Supabase Edge Function
 export const generateStickerWithImagen = async (
   card: VocabularyCard
 ): Promise<StickerGenerationResult> => {
   try {
-    // Generate sticker configuration
-    const stickerConfig = generateStickerConfig(card);
-    const apiRequest = configToApiRequest(stickerConfig);
-    
-    // Create a detailed prompt for Gemini
-    const detailedPrompt = `Generate an image with these exact specifications:
-${apiRequest.prompt}
+    console.log(`🎨 Requesting sticker generation for "${card.word}" via edge function...`);
 
-Style requirements:
-- Kawaii chibi art style
-- Die-cut sticker appearance
-- Thick black outline
-- Flat colors, no gradients
-- White background
-- Cute facial expression
-- Simple, rounded shapes
-
-Avoid: ${apiRequest.negative_prompt}`;
-    
-    // Make API request to Gemini
-    const response = await fetch(`${GEMINI_API_ENDPOINT}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: detailedPrompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.4,
-          topK: 32,
-          topP: 1,
-          maxOutputTokens: 8192,
-          responseModalities: ["IMAGE", "TEXT"]
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
-      })
+    // Call the edge function
+    const { data, error } = await supabase.functions.invoke('generate-sticker', {
+      body: {
+        word: card.word,
+        language: card.language,
+        category: card.category,
+        card_id: card.id
+      }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error response:', errorText);
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(`Sticker generation failed: ${error.message}`);
     }
 
-    // Parse the JSON response
-    const data = await response.json();
-    
-    // Check for generated image in the response
-    const candidate = data.candidates?.[0];
-    if (!candidate?.content?.parts?.[0]) {
-      throw new Error('No content in response');
-    }
-    
-    const part = candidate.content.parts[0];
-    let imageBlob: Blob;
-    
-    // Check if the part contains inline image data
-    if (part.inlineData?.mimeType?.includes('image')) {
-      // Image is in the response as base64
-      const base64Data = part.inlineData.data;
-      const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      imageBlob = new Blob([bytes], { type: part.inlineData.mimeType });
-    } else if (part.text) {
-      // If we got text instead of an image, throw an error
-      console.error('Got text response instead of image:', part.text);
-      throw new Error('Model returned text instead of image');
-    } else {
-      throw new Error('No image generated');
+    if (!data.success) {
+      throw new Error(data.error || 'Unknown sticker generation error');
     }
 
-    const stickerId = generateStickerId(card.word, card.language);
+    console.log(`✅ Sticker generated via edge function: ${data.sticker_url}`);
     
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('stickers')
-      .upload(`${stickerId}.png`, 
-        imageBlob, 
-        {
-          contentType: 'image/png',
-          cacheControl: '31536000', // 1 year cache
-        }
-      );
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('stickers')
-      .getPublicUrl(`${stickerId}.png`);
-
     return {
       success: true,
-      stickerUrl: publicUrl,
-      stickerId
+      stickerUrl: data.sticker_url,
+      stickerId: data.sticker_url.split('/').pop()?.replace('.png', '') || ''
     };
 
   } catch (error) {

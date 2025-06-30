@@ -410,11 +410,14 @@ export const findCardsFromPhoto = async (
 
     debugLog(`✅ Found ${vocabularyCards.length} vocabulary matches from keywords: ${data.keywords_found?.join(', ') || 'none'}`);
 
-    // Queue new vocabulary cards for sticker generation
+    // Queue new vocabulary cards for background sticker generation
     if (vocabularyCards.length > 0) {
-      processNewVocabularyForStickers(vocabularyCards).catch(error => {
-        console.error('Failed to queue stickers:', error);
-      });
+      // Fire-and-forget background sticker generation
+      setTimeout(() => {
+        processNewVocabularyForStickers(vocabularyCards).catch(error => {
+          console.error('Background sticker generation failed:', error);
+        });
+      }, 0); // Run on next tick to avoid blocking
     }
 
     return { cards: vocabularyCards, pin: photoPin };

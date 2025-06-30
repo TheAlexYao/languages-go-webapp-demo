@@ -2,9 +2,10 @@ import { VocabularyCard } from '../../types/vocabulary';
 import { stickerQueue } from './stickerQueue';
 import { supabase } from '../supabase';
 
-// Process newly discovered vocabulary cards and queue them for sticker generation
+// Process newly discovered vocabulary cards and queue them for BACKGROUND sticker generation
+// This function runs asynchronously and doesn't block the photo capture flow
 export const processNewVocabularyForStickers = async (cards: VocabularyCard[]) => {
-  console.log(`🎨 Processing ${cards.length} new vocabulary cards for sticker generation`);
+  console.log(`🎨 Processing ${cards.length} new vocabulary cards for background sticker generation`);
   
   const results = [];
   
@@ -67,21 +68,34 @@ export const getStickerUrl = (card: VocabularyCard): string => {
   return generatePlaceholderSticker(card);
 };
 
-// Generate a placeholder sticker while the real one is being generated
+// Generate a beautiful placeholder sticker while the real one is being generated
 const generatePlaceholderSticker = (card: VocabularyCard): string => {
   // Use the first letter of the English translation for better recognition
   const firstLetter = card.translation.charAt(0).toUpperCase();
   const bgColor = getCategoryColor(card.category);
+  const shadowColor = getCategoryShadowColor(card.category);
   
-  // Create an SVG data URL for the placeholder
+  // Create a beautiful SVG with gradient and shadow
   const svg = `
     <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="200" fill="${bgColor}" rx="20"/>
-      <text x="100" y="120" font-family="Arial, sans-serif" font-size="80" font-weight="bold" text-anchor="middle" fill="white">${firstLetter}</text>
+      <defs>
+        <linearGradient id="cardGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${bgColor};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${shadowColor};stop-opacity:1" />
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="2" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+        </filter>
+      </defs>
+      <rect width="200" height="200" fill="url(#cardGradient)" rx="24" filter="url(#shadow)"/>
+      <circle cx="100" cy="100" r="70" fill="rgba(255,255,255,0.15)" />
+      <text x="100" y="125" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700" text-anchor="middle" fill="white" filter="url(#shadow)">${firstLetter}</text>
+      <text x="100" y="180" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="500" text-anchor="middle" fill="rgba(255,255,255,0.8)">${card.category.toUpperCase()}</text>
     </svg>
   `;
   
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  // Use Unicode-safe base64 encoding
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 };
 
 // Get color based on category
@@ -96,6 +110,20 @@ const getCategoryColor = (category: string): string => {
   };
   
   return colors[category.toLowerCase()] || '#E0E0E0';
+};
+
+// Get shadow color based on category
+const getCategoryShadowColor = (category: string): string => {
+  const shadowColors: Record<string, string> = {
+    animal: '#E85A5A',
+    food: '#E6B56A',
+    nature: '#5DC85D',
+    object: '#7A94C4',
+    building: '#ABABAB',
+    person: '#E88A7A'
+  };
+  
+  return shadowColors[category.toLowerCase()] || '#BFBFBF';
 };
 
 // Monitor sticker generation progress

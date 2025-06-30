@@ -64,12 +64,16 @@ const CATEGORY_PALETTES: Record<string, Partial<StickerConfig['palette']>> = {
   person: {
     primary: "#FDBCB4",
     secondary: "#CD5C5C"
+  },
+  technology: {
+    primary: "#E6F3FF",
+    secondary: "#4169E1"
   }
 };
 
-// Expression mappings based on word characteristics (using English translation)
-const getExpression = (translation: string, category: string): string => {
-  const word = translation.toLowerCase();
+// Expression mappings based on word characteristics (using English word)
+const getExpression = (word: string, category: string): string => {
+  word = word.toLowerCase();
   
   // Cute/small things get closed-eye smile
   if (word.includes('baby') || word.includes('little') || word.includes('small')) {
@@ -85,10 +89,10 @@ const getExpression = (translation: string, category: string): string => {
   return "open-eye smile";
 };
 
-// Build features based on the translation and category
-const buildFeatures = (translation: string, category: string): Record<string, any> => {
+// Build features based on the word and category
+const buildFeatures = (word: string, category: string): Record<string, any> => {
   const features: Record<string, any> = {};
-  const word = translation.toLowerCase();
+  word = word.toLowerCase();
   
   // Add category-specific features
   switch (category) {
@@ -120,11 +124,11 @@ export const generateStickerConfig = (card: VocabularyCard): StickerConfig => {
     ...(CATEGORY_PALETTES[category] || {})
   };
   
-  // Build the main prompt using English translation for better AI understanding
-  const mainSubject = card.translation.toLowerCase();
+  // Build the main prompt using English word for better AI understanding
+  const mainSubject = card.word.toLowerCase();
   const keyTraits = getKeyTraits(card);
-  const expression = getExpression(card.translation, category);
-  const features = buildFeatures(card.translation, category);
+  const expression = getExpression(card.word, category);
+  const features = buildFeatures(card.word, category);
   
   const prompt = `${mainSubject}, kawaii chibi sticker, ${keyTraits}, flat clean lines, thick outline, on white`;
   
@@ -140,10 +144,10 @@ export const generateStickerConfig = (card: VocabularyCard): StickerConfig => {
   };
 };
 
-// Extract key physical traits based on the English translation
+// Extract key physical traits based on the English word
 const getKeyTraits = (card: VocabularyCard): string => {
   const traits: string[] = [];
-  const word = card.translation.toLowerCase(); // Use English translation
+  const word = card.word.toLowerCase(); // Use English word
   const category = card.category.toLowerCase();
   
   // Add category-specific traits
@@ -178,6 +182,19 @@ const getKeyTraits = (card: VocabularyCard): string => {
       else if (word.includes('sun')) traits.push('circular shape, radiating rays');
       else if (word.includes('cloud')) traits.push('fluffy shape, soft edges');
       else traits.push('organic shapes');
+      break;
+      
+    case 'technology':
+    case 'object':
+      if (word.includes('computer') || word.includes('laptop')) traits.push('rectangular screen with keyboard, cute pixel eyes on screen');
+      else if (word.includes('phone') || word.includes('smartphone')) traits.push('rectangular device with screen, app icons');
+      else if (word.includes('keyboard')) traits.push('rectangular shape with tiny keys, cute keycaps');
+      else if (word.includes('mouse')) traits.push('oval shape with cord tail, two button eyes');
+      else if (word.includes('monitor') || word.includes('screen')) traits.push('rectangular display, stand base, cute face on screen');
+      else if (word.includes('headphones')) traits.push('rounded ear cups, headband, music notes');
+      else if (word.includes('microphone')) traits.push('cylindrical shape, mesh top, stand');
+      else if (word.includes('camera')) traits.push('rectangular body with round lens eye');
+      else traits.push('simplified geometric shape, friendly face');
       break;
       
     default:

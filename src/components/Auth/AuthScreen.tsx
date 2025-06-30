@@ -80,7 +80,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         </h1>
         
         <p className={`text-gray-400 mb-8 leading-relaxed ${isMobile ? 'text-sm' : ''}`}>
-          Catch vocabulary in the wild! Take photos and collect vocabulary cards as you explore the world around you.
+          Catch vocabulary in the wild! Take photos and collect vocabulary cards in 8 languages as you explore the world around you.
         </p>
 
         {showCaptcha && (

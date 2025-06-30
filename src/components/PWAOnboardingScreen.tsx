@@ -185,7 +185,7 @@ export const PWAOnboardingScreen: React.FC<PWAOnboardingScreenProps> = ({
           
           <p className={`text-gray-400 ${isMobile ? 'text-sm' : 'text-base'} leading-relaxed mb-6`}>
             Get the best experience by adding this app to your home screen. 
-            It's like having a personal vocabulary trainer in your pocket!
+            Learn vocabulary in 8 languages with your personal pocket trainer!
           </p>
 
           {/* App Preview */}

@@ -111,8 +111,23 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
       throw new Error(`Database query error: ${error.message}`);
     }
 
+    // Transform existing cards to include proper translation
+    const transformedExistingCards = (existingCards || []).map(card => {
+      // Get translation from JSONB translations field or fallback to translation column
+      let cardTranslation = card.translation || '';
+      
+      if (card.translations && typeof card.translations === 'object') {
+        cardTranslation = card.translations[targetLanguage] || card.translation || card.word;
+      }
+      
+      return {
+        ...card,
+        translation: cardTranslation
+      };
+    });
+
     const foundWords = new Set(
-      (existingCards || []).map(card => card.word.toLowerCase())
+      transformedExistingCards.map(card => card.word.toLowerCase())
     );
     
     // Find keywords that don't have cards yet
@@ -122,7 +137,7 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
 
     // If all keywords are found, return existing cards
     if (missingKeywords.length === 0) {
-      return existingCards || [];
+      return transformedExistingCards;
     }
 
     // Generate new cards for missing keywords
@@ -136,11 +151,11 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
         .from('master_vocabulary')
         .insert(newCards.map(card => ({
           word: card.word,
-          translation: card.translation,
+          language: 'en',
           category: card.category,
           difficulty: parseInt(card.difficulty),
           rarity: card.rarity,
-          language_detected: targetLanguage,
+          translations: card.translations || {}, // Store all translations
           created_by_ai: true // Flag to indicate AI-generated
         })))
         .select('*');
@@ -148,15 +163,28 @@ async function findOrCreateVocabularyMatches(keywords: string[], targetLanguage:
       if (insertError) {
         console.error('Failed to insert new cards:', insertError);
         // Continue with existing cards even if insert fails
-        return existingCards || [];
+        return transformedExistingCards;
       } else {
+        // Transform inserted cards to include proper translation
+        const transformedNewCards = (insertedCards || []).map(card => {
+          let cardTranslation = card.word;
+          
+          if (card.translations && typeof card.translations === 'object') {
+            cardTranslation = card.translations[targetLanguage] || card.word;
+          }
+          
+          return {
+            ...card,
+            translation: cardTranslation
+          };
+        });
+        
         // Combine existing and new cards
-        const allCards = [...(existingCards || []), ...(insertedCards || [])];
-        return allCards;
+        return [...transformedExistingCards, ...transformedNewCards];
       }
     }
 
-    return existingCards || [];
+    return transformedExistingCards;
   } catch (error) {
     console.error('Database error:', error);
     throw new Error(`Failed to query/create vocabulary: ${error.message}`);
@@ -172,16 +200,34 @@ async function generateNewVocabularyCards(
     return [];
   }
 
+  // Get all supported languages for multi-language generation
+  const supportedLanguages = ['es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'];
+  
   const prompt = `For each of these English words, provide:
-1. Translation to ${targetLanguage}
-2. Category (animal, food, object, nature, building, person, vehicle, clothing, etc.)
+1. Translations to ALL of these languages: Spanish (es), French (fr), German (de), Italian (it), Portuguese (pt), Japanese (ja), Korean (ko), Chinese (zh)
+2. Category (animal, food, object, nature, building, person, vehicle, clothing, technology, etc.)
 3. Difficulty (1=easy common word, 2=medium, 3=hard/uncommon)
 4. Rarity for game purposes (common, rare, epic)
 
 Words: ${keywords.join(', ')}
 
 Return ONLY a JSON array with this exact format, no other text:
-[{"word": "cat", "translation": "gato", "category": "animal", "difficulty": "1", "rarity": "common"}]`;
+[{
+  "word": "cat",
+  "translations": {
+    "es": "gato",
+    "fr": "chat",
+    "de": "Katze",
+    "it": "gatto",
+    "pt": "gato",
+    "ja": "猫",
+    "ko": "고양이",
+    "zh": "猫"
+  },
+  "category": "animal",
+  "difficulty": "1",
+  "rarity": "common"
+}]`;
 
   try {
     const response = await fetch(
@@ -223,11 +269,12 @@ Return ONLY a JSON array with this exact format, no other text:
 
       const cards = JSON.parse(jsonMatch[0]);
       
-      // Generate unique IDs for the cards
+      // Generate unique IDs for the cards and return with the requested language translation
       return cards.map(card => ({
         id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         word: card.word,
-        translation: card.translation,
+        translation: card.translations?.[targetLanguage] || card.translations?.es || '',
+        translations: card.translations, // Store all translations for later use
         category: card.category || 'object',
         difficulty: String(card.difficulty || 1),
         rarity: card.rarity || 'common',

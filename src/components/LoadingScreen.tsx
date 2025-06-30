@@ -108,7 +108,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <PermissionCard
             icon={<img src="/icons/map-kun.svg" alt="Languages Go" className="h-10 w-10" />}
             title="Welcome to Languages Go!"
-            description="Before you start your adventure, we need to set up a few things to get you ready."
+            description="Learn vocabulary in 8 different languages! Before you start your adventure, we need to set up a few things."
             buttonText="Get Started"
             onAction={() => setStep('camera')}
           />

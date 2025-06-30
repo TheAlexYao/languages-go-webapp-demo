@@ -68,6 +68,25 @@ export const getStickerUrl = (card: VocabularyCard): string => {
   return generatePlaceholderSticker(card);
 };
 
+// Helper: Robust Unicode-safe Base64 encoding using TextEncoder (avoids InvalidCharacterError)
+const encodeSvgToBase64 = (svg: string): string => {
+  try {
+    // Browser environment: TextEncoder is widely supported (Edge 79+, Safari 14+, iOS 14+)
+    const uint8 = new TextEncoder().encode(svg);
+    let binary = '';
+    uint8.forEach(byte => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary);
+  } catch (error) {
+    // Fallback for very old browsers – shouldn't happen in PWA targets but just in case
+    // Using encodeURIComponent / unescape as secondary strategy
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore – unescape is deprecated but still available for fallback
+    return btoa(unescape(encodeURIComponent(svg)));
+  }
+};
+
 // Generate a beautiful placeholder sticker while the real one is being generated
 const generatePlaceholderSticker = (card: VocabularyCard): string => {
   // Use the first letter of the English translation for better recognition
@@ -94,8 +113,8 @@ const generatePlaceholderSticker = (card: VocabularyCard): string => {
     </svg>
   `;
   
-  // Use Unicode-safe base64 encoding
-  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+  // Unicode-safe Base64 encoding (handles any language character)
+  return `data:image/svg+xml;base64,${encodeSvgToBase64(svg)}`;
 };
 
 // Get color based on category

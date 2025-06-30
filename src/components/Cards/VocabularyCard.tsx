@@ -47,7 +47,6 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
   const [isFlipped, setIsFlipped] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [stickerGenerating, setStickerGenerating] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState(getPlaceholderImage(card));
 
   // Update image URL when card data changes
@@ -55,14 +54,6 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
     const newImageUrl = getPlaceholderImage(card);
     setCurrentImageUrl(newImageUrl);
   }, [card]);
-
-  // Check if the card needs a sticker and try to load it
-  useEffect(() => {
-    // Simple image loading check
-    if (card.aiImageUrl && card.aiImageUrl !== currentImageUrl) {
-      setCurrentImageUrl(card.aiImageUrl);
-    }
-  }, [card, currentImageUrl]);
 
   const getRarityGradient = (rarity: string) => {
     switch (rarity) {
@@ -113,14 +104,6 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
       `}
       onClick={handleCardClick}
     >
-      {/* Sticker Generation Indicator */}
-      {stickerGenerating && (
-        <div className="absolute top-1 right-1 z-10 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1 shadow-lg">
-          <Sparkles className="h-3 w-3 animate-pulse" />
-          <span>Generating sticker...</span>
-        </div>
-      )}
-
       <div className={`
         relative w-full h-full transition-transform duration-700 transform-style-preserve-3d
         ${isFlipped ? 'rotate-y-180' : ''}
@@ -157,16 +140,6 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
               {!imageLoaded && !imageError && (
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 text-slate-500 animate-spin" />
-                </div>
-              )}
-              
-              {/* Sticker generation overlay */}
-              {stickerGenerating && (
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center backdrop-blur-sm">
-                  <div className="text-center">
-                    <Sparkles className="h-6 w-6 text-purple-600 animate-pulse mx-auto mb-1" />
-                    <p className="text-xs text-purple-700 font-medium">Creating sticker...</p>
-                  </div>
                 </div>
               )}
 

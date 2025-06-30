@@ -466,15 +466,13 @@ export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
       .select(`
         card_id,
         collected_at,
-        master_vocabulary (
+        vocabulary_cards (
           id,
           word,
           translation,
-          language,
-          base_image_url,
-          rarity,
+          language_detected,
           difficulty,
-          category
+          wcache_id
         )
       `)
       .eq('user_id', user.id);
@@ -486,17 +484,17 @@ export const getUserCollectedCards = async (): Promise<VocabularyCard[]> => {
 
     // Transform the data to match our VocabularyCard type
     return data.map((row: any) => ({
-      id: row.master_vocabulary.id,
-      word: row.master_vocabulary.word,
-      translation: row.master_vocabulary.translation,
-      language: row.master_vocabulary.language,
-      difficulty: row.master_vocabulary.difficulty,
-      aiImageUrl: row.master_vocabulary.base_image_url,
-      aiPrompt: '', // Not stored in master_vocabulary for now
-      pinId: '', // Not relevant for collected cards
+      id: row.vocabulary_cards.id,
+      word: row.vocabulary_cards.word,
+      translation: row.vocabulary_cards.translation,
+      language: row.vocabulary_cards.language_detected || 'Spanish',
+      difficulty: row.vocabulary_cards.difficulty || 1,
+      aiImageUrl: '', // Not stored in vocabulary_cards
+      aiPrompt: '', // Not stored in vocabulary_cards
+      pinId: row.vocabulary_cards.wcache_id || '',
       collectedAt: new Date(row.collected_at),
-      rarity: row.master_vocabulary.rarity,
-      category: row.master_vocabulary.category
+      rarity: 'common' as const, // Default since not in vocabulary_cards
+      category: 'general' // Default since not in vocabulary_cards
     }));
   } catch (error) {
     console.error('Error in getUserCollectedCards:', error);

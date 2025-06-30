@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GeolocationState, Location } from '../types/location';
 
+// Default location (New York City)
+const DEFAULT_LOCATION: Location = {
+  lat: 40.7128,
+  lng: -74.0060,
+  accuracy: 1000
+};
+
 export const useGeolocation = () => {
   const [state, setState] = useState<GeolocationState>({
-    location: null,
-    accuracy: null,
+    location: DEFAULT_LOCATION, // Always start with default location
+    accuracy: DEFAULT_LOCATION.accuracy,
     isLoading: false,
     error: null,
     isSupported: 'geolocation' in navigator
@@ -29,21 +36,7 @@ export const useGeolocation = () => {
           error: 'Location request timed out. Using default location.' 
         }));
         
-        // Provide a default location (New York City) if geolocation fails
-        const defaultLocation: Location = {
-          lat: 40.7128,
-          lng: -74.0060,
-          accuracy: 1000
-        };
-        
-        setState(prev => ({
-          ...prev,
-          location: defaultLocation,
-          accuracy: 1000,
-          isLoading: false
-        }));
-        
-        resolve(defaultLocation);
+        resolve(DEFAULT_LOCATION);
       }, 8000); // 8 second timeout
 
       navigator.geolocation.getCurrentPosition(
@@ -71,37 +64,27 @@ export const useGeolocation = () => {
           clearTimeout(timeoutId);
           
           let errorMessage = 'Failed to get location';
-          let defaultLocation: Location | null = null;
           
           switch (error.code) {
             case error.PERMISSION_DENIED:
               errorMessage = 'Location access denied. Using default location.';
-              defaultLocation = { lat: 40.7128, lng: -74.0060, accuracy: 1000 };
               break;
             case error.POSITION_UNAVAILABLE:
               errorMessage = 'Location unavailable. Using default location.';
-              defaultLocation = { lat: 40.7128, lng: -74.0060, accuracy: 1000 };
               break;
             case error.TIMEOUT:
               errorMessage = 'Location request timed out. Using default location.';
-              defaultLocation = { lat: 40.7128, lng: -74.0060, accuracy: 1000 };
               break;
           }
           
           setState(prev => ({
             ...prev,
-            location: defaultLocation,
-            accuracy: defaultLocation?.accuracy || null,
             isLoading: false,
             error: errorMessage
           }));
           
-          if (defaultLocation) {
-            console.log('Using default location due to error:', errorMessage);
-            resolve(defaultLocation);
-          } else {
-            reject(new Error(errorMessage));
-          }
+          console.log('Using default location due to error:', errorMessage);
+          resolve(DEFAULT_LOCATION);
         },
         {
           enableHighAccuracy: true,

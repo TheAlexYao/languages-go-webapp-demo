@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useState } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, MapPin, Loader2, Crosshair, AlertCircle, RefreshCw } from 'lucide-react';
+import { Camera, MapPin, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useMobileDetection } from '../../hooks/useMobileDetection';
 import { findCardsFromPhoto } from '../../services/supabase';
 import { VocabularyCard, PhotoPin } from '../../types/vocabulary';
@@ -31,7 +31,7 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   const { isMobile } = useMobileDetection();
 
   const capturePhoto = useCallback(async () => {
-    if (!webcamRef.current || isProcessing || !isEnabled || !location) return;
+    if (!webcamRef.current || isProcessing || !isEnabled) return;
 
     try {
       setIsProcessing(true);
@@ -43,9 +43,12 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       setProcessingStep('Analyzing photo with AI...');
       const imageBase64 = imageSrc.split(',')[1];
       
+      // Use location if available, otherwise the hook will provide default
+      const currentLocation = location || { lat: 40.7128, lng: -74.0060 };
+      
       const { cards, pin } = await findCardsFromPhoto(
         imageBase64,
-        { lat: location.lat, lng: location.lng },
+        { lat: currentLocation.lat, lng: currentLocation.lng },
         selectedLanguage
       );
 
@@ -75,7 +78,7 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
     facingMode: isMobile ? 'environment' : undefined
   };
 
-  const canCapture = !!location && !locationLoading && !isProcessing;
+  const canCapture = !isProcessing; // Remove location requirement
 
   return (
     <div className={`relative w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden shadow-2xl border border-slate-700/50 ${isMobile ? 'rounded-2xl' : 'rounded-3xl'}`}>
@@ -115,7 +118,17 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
         )}
       </div>
 
-      {/* Other UI elements (capture button, overlays etc.) remain largely the same */}
+      {/* Processing overlay */}
+      {isProcessing && (
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl border border-white/20">
+            <Loader2 className="h-8 w-8 text-white animate-spin mx-auto mb-3" />
+            <p className="text-white text-sm font-medium">{processingStep}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Capture button */}
       <div className={`absolute ${isMobile ? 'bottom-6' : 'bottom-8'} left-1/2 transform -translate-x-1/2`}>
         <button
           onClick={capturePhoto}

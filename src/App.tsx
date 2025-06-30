@@ -249,7 +249,7 @@ function App() {
       }
       
       // Actually collect the card
-      collectCard(card);
+      await collectCard(card);
       
       // Show success feedback
       setShowCollectSuccess({ cardId: card.id, word: card.word });

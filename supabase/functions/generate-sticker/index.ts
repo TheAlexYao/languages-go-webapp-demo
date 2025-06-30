@@ -1,3 +1,5 @@
+// deno-lint-ignore-file
+// @ts-nocheck
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -118,14 +120,16 @@ function generateFilename(word: string, language: string): string {
 
 // Main handler
 Deno.serve(async (req: Request) => {
-  // Handle CORS
+  // Handle CORS pre-flight requests
   if (req.method === 'OPTIONS') {
+    const reqHeaders = req.headers.get('Access-Control-Request-Headers') || 'Content-Type, Authorization';
     return new Response(null, {
-      status: 200,
+      status: 204,
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': reqHeaders,
+        'Access-Control-Max-Age': '86400',
       },
     });
   }
@@ -185,6 +189,7 @@ Deno.serve(async (req: Request) => {
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
         },
       }
     );
@@ -204,6 +209,7 @@ Deno.serve(async (req: Request) => {
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
         },
       }
     );
